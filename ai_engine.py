@@ -4,8 +4,8 @@ from groq import Groq
 
 class AIEngine:
     def __init__(self):
-        # Defolt model nomi
-        self.model = "llama-3.3-70b-versatile"
+        # Defolt model nomi to'g'rilandi
+        self.model = "llama-3.1-8b-instant"
         self.client = None
         self._init_client()
 
@@ -24,18 +24,16 @@ class AIEngine:
             self.client = Groq(api_key=clean_key)
 
     def set_model(self, model_name: str):
-        # Yaroqli Groq modellar ro'yxati
+        # Hozirda ishlaydigan Groq modellar ro'yxati
         valid_models = [
-            "llama-3.3-70b-versatile",
-            "llama3-70b-8192",
-            "llama3-8b-8192",
+            "llama-3.1-8b-instant",
+            "llama-3.1-70b-versatile",
             "mixtral-8x7b-32768"
         ]
-        # Agar kelgan nom ro'yxatda bo'lsa o'rnatadi, aks holda standart modelni tanlaydi
         if model_name in valid_models:
             self.model = model_name
         else:
-            self.model = "llama-3.3-70b-versatile"
+            self.model = "llama-3.1-8b-instant"
 
     def stream_chat(self, user_prompt: str, history=None, context: str = "", web_search: str = "", deep_thinking: bool = False):
         if self.client is None:

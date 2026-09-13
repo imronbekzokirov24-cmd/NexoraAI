@@ -14,6 +14,7 @@ from database import db
 from ai_engine import ai
 from search import search
 from speech import speech
+from vision import vision
 from pdf_reader import pdf_reader
 from style import style
 from export_utils import exporter
@@ -30,7 +31,7 @@ st.set_page_config(
     page_title="EduMindAI Enterprise",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # ==========================================================
@@ -75,7 +76,9 @@ if "total_prompts" not in st.session_state:
 # ==========================================================
 
 st.title("🧠 EduMindAI Enterprise v3.5")
-st.caption("AI Chat • Multilingual • Code Interpreter • Vision • PDF/Excel • Web Scraper • Deep Reasoning")
+st.caption(
+    "AI Chat • Multilingual • Code Interpreter • Vision • PDF/Excel • Web Scraper • Deep Reasoning"
+)
 st.divider()
 
 # ==========================================================
@@ -86,14 +89,16 @@ with st.sidebar:
     st.title("⚙️ EduMindAI Control Center")
     st.markdown("---")
 
-    # 1. ACCOUNT / SIGN IN BO'LIMI
+    # 1. ACCOUNT
     st.subheader("👤 Account")
-    
+
     if not st.session_state.logged_in:
         st.write("Tizimga kirish uchun email va parolingizni kiriting:")
         email_input = st.text_input("Email:", placeholder="example@gmail.com")
-        password_input = st.text_input("Parol:", type="password", placeholder="******")
-        
+        password_input = st.text_input(
+            "Parol:", type="password", placeholder="******"
+        )
+
         if st.button("🔑 Sign In", use_container_width=True):
             if email_input and "@" in email_input:
                 st.session_state.logged_in = True
@@ -112,7 +117,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # 2. TIZIM STATISTIKASI (Dashboard Widget)
+    # 2. USAGE DASHBOARD
     st.subheader("📊 Usage Dashboard")
     col1, col2 = st.columns(2)
     with col1:
@@ -127,14 +132,23 @@ with st.sidebar:
     app_language = st.selectbox(
         "Muloqot tili (Language):",
         ["O'zbekcha", "English", "Русский"],
-        index=0
+        index=0,
     )
 
     st.markdown("---")
 
     # 4. AI SETTINGS & MODEL SELECTION
     st.subheader("🤖 AI Settings")
-    ai_model = st.selectbox("AI Model", ["gpt-4o", "gpt-4.1", "gpt-4", "gpt-3.5-turbo"], index=0)
+    ai_model = st.selectbox(
+        "AI Model",
+        [
+            "llama-3.3-70b-versatile",
+            "llama3-70b-8192",
+            "llama3-8b-8192",
+            "mixtral-8x7b-32768",
+        ],
+        index=0,
+    )
     ai.set_model(ai_model)
 
     st.markdown("---")
@@ -144,10 +158,12 @@ with st.sidebar:
     enable_web = st.toggle("🌐 Internet Search", value=True)
     enable_memory = st.toggle("🧠 Conversation Memory", value=True)
     enable_tts = st.toggle("🔊 Voice Response", value=False)
-    
+
     voice_gender = "Ayol"
     if enable_tts:
-        voice_gender = st.radio("Ovoz turi:", ["Ayol", "Erkak"], horizontal=True)
+        voice_gender = st.radio(
+            "Ovoz turi:", ["Ayol", "Erkak"], horizontal=True
+        )
 
     enable_img_gen = st.toggle("🎨 Image Generation", value=False)
     enable_deep_think = st.toggle("🔬 Deep Thinking Mode", value=False)
@@ -157,14 +173,25 @@ with st.sidebar:
     if enable_img_gen:
         st.markdown("---")
         st.subheader("🎨 Image Settings")
-        img_style = st.selectbox("Uslub (Style):", ["Realistic", "Anime", "3D Render", "Cyberpunk", "Oil Painting", "Digital Art"])
+        img_style = st.selectbox(
+            "Uslub (Style):",
+            [
+                "Realistic",
+                "Anime",
+                "3D Render",
+                "Cyberpunk",
+                "Oil Painting",
+                "Digital Art",
+            ],
+        )
         img_aspect = st.selectbox("O'lcham (Aspect Ratio):", ["1:1", "16:9", "9:16"])
 
     st.markdown("---")
 
-    # PROMPT TEMPLATES (Xavfsiz ravishda tekshirish)
+    # PROMPT TEMPLATES
     try:
         from prompt_templates import templates
+
         template_prefix = templates.render_templates()
         if template_prefix:
             st.session_state.prefilled_prompt = template_prefix
@@ -190,7 +217,7 @@ with st.sidebar:
     audio_record = mic_recorder(
         start_prompt="🔴 Ovoz yozish",
         stop_prompt="⬛ To'xtatish",
-        key='recorder'
+        key="recorder",
     )
 
     st.markdown("---")
@@ -204,7 +231,7 @@ with st.sidebar:
             data=docx_data,
             file_name="edumind_chat.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True
+            use_container_width=True,
         )
 
         try:
@@ -214,7 +241,7 @@ with st.sidebar:
                 data=bytes(pdf_data),
                 file_name="edumind_chat.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
             )
         except Exception:
             pass
@@ -225,9 +252,13 @@ with st.sidebar:
 
     # 📄 DOCUMENT UPLOAD
     st.subheader("📄 Upload Document")
-    uploaded_files = st.file_uploader("PDF / TXT fayllar", type=["pdf", "txt"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader(
+        "PDF / TXT fayllar", type=["pdf", "txt"], accept_multiple_files=True
+    )
     if uploaded_files:
-        st.session_state.document_text = pdf_reader.read_multiple(uploaded_files)
+        st.session_state.document_text = pdf_reader.read_multiple(
+            uploaded_files
+        )
         st.success("Hujjatlar yuklandi.")
 
     st.markdown("---")
@@ -244,11 +275,17 @@ with st.sidebar:
 
     # 🖼️ IMAGE UPLOAD
     st.subheader("🖼️ Upload Image")
-    uploaded_image_file = st.file_uploader("Rasm yuklash", type=["png", "jpg", "jpeg"], key="img_input")
+    uploaded_image_file = st.file_uploader(
+        "Rasm yuklash", type=["png", "jpg", "jpeg"], key="img_input"
+    )
 
     if uploaded_image_file is not None:
         st.session_state.active_image = uploaded_image_file
-        st.image(uploaded_image_file, caption="Kiritilgan rasm", use_container_width=True)
+        st.image(
+            uploaded_image_file,
+            caption="Kiritilgan rasm",
+            use_container_width=True,
+        )
 
     st.markdown("---")
 
@@ -280,14 +317,16 @@ text_prompt = st.chat_input("EduMindAI bilan suhbatni boshlang...")
 prompt = None
 if text_prompt:
     prompt = text_prompt
-elif audio_record and 'bytes' in audio_record:
-    st.audio(audio_record['bytes'], format='audio/wav')
+elif audio_record and "bytes" in audio_record:
+    st.audio(audio_record["bytes"], format="audio/wav")
     prompt = "Ovozli xabar qabul qilindi. Ushbu xabarga mos javob ber."
 
 if prompt:
     st.session_state.total_prompts += 1
 
-    lang_instruction = f"\n\n[SYSTEM INSTRUCTION: Javobni {app_language} tilda bering.]"
+    lang_instruction = (
+        f"\n\n[SYSTEM INSTRUCTION: Javobni {app_language} tilda bering.]"
+    )
 
     if st.session_state.prefilled_prompt:
         prompt = st.session_state.prefilled_prompt + prompt
@@ -296,11 +335,9 @@ if prompt:
     prompt_with_lang = prompt + lang_instruction
     current_img = st.session_state.active_image
 
-    st.session_state.messages.append({
-        "role": "user",
-        "content": prompt,
-        "image": current_img
-    })
+    st.session_state.messages.append(
+        {"role": "user", "content": prompt, "image": current_img}
+    )
 
     with st.chat_message("user"):
         if current_img is not None:
@@ -314,9 +351,15 @@ if prompt:
         # 1. RASM YARATISH
         if enable_img_gen:
             with st.spinner("🎨 AI rasm chizmoqda..."):
-                img_url = ai.generate_image(prompt, style=img_style, aspect_ratio=img_aspect)
+                img_url = ai.generate_image(
+                    prompt, style=img_style, aspect_ratio=img_aspect
+                )
                 if img_url:
-                    st.image(img_url, caption=f"Yaratilgan rasm ({img_style}, {img_aspect}): {prompt}", use_container_width=True)
+                    st.image(
+                        img_url,
+                        caption=f"Yaratilgan rasm ({img_style}, {img_aspect}): {prompt}",
+                        use_container_width=True,
+                    )
                     response = f"Mana siz so'ragan rasm ({img_style} uslubida): {img_url}"
                 else:
                     response = "❌ Rasm yaratishda xatolik yuz berdi."
@@ -325,7 +368,9 @@ if prompt:
         # 2. RASM TAHLILI (VISION)
         elif current_img is not None:
             with st.spinner("🖼️ AI rasmni ko'rib tahlil qilmoqda..."):
-                response = ai.vision_chat(image=current_img, user_prompt=prompt_with_lang)
+                response = ai.vision_chat(
+                    image=current_img, user_prompt=prompt_with_lang
+                )
             placeholder.markdown(response)
             st.session_state.active_image = None
 
@@ -340,7 +385,9 @@ if prompt:
             if st.session_state.data_summary:
                 full_context += f"\n\n[EXCEL/CSV DATA SUMMARY]:\n{st.session_state.data_summary}"
             if st.session_state.url_text:
-                full_context += f"\n\n[WEBPAGE URL CONTENT]:\n{st.session_state.url_text}"
+                full_context += (
+                    f"\n\n[WEBPAGE URL CONTENT]:\n{st.session_state.url_text}"
+                )
 
             with st.spinner("🤖 EduMindAI javob bermoqda..."):
                 history = st.session_state.messages if enable_memory else None
@@ -349,7 +396,7 @@ if prompt:
                     history=history,
                     context=full_context,
                     web_search=web_context,
-                    deep_thinking=enable_deep_think
+                    deep_thinking=enable_deep_think,
                 ):
                     if chunk is not None:
                         response += str(chunk)
@@ -361,8 +408,6 @@ if prompt:
             if audio:
                 st.audio(audio)
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": response,
-        "image": None
-    })
+    st.session_state.messages.append(
+        {"role": "assistant", "content": response, "image": None}
+    )

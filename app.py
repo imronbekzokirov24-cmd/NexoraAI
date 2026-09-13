@@ -23,19 +23,34 @@ menu = st.sidebar.selectbox(
     ],
 )
 
-# 1. Aqlli suhbat moduli
+# 1. Aqlli suhbat moduli (Enter bosganda ishlaydigan chat interfeysi)
 if menu == "🧠 Aqlli suhbat":
   st.header("🧠 Aqlli suhbat bilan muloqot")
-  savol = st.text_input("Menga biror savol bering:")
-  if st.button("Javob olish"):
-    if savol:
-      # Hozircha oddiy mantiq, keyinchalik buni API bilan ulaymiz
-      st.success(
-          f"NexoraAI javobi: Siz '{savol}' deb yordam so'radingiz. Tez orada"
-          " to'liq sun'iy intellekt javobi ulanadi!"
-      )
-    else:
-      st.warning("Iltimos, savol kiriting.")
+
+  # Xabarlarni saqlash uchun state
+  if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+  # Oldingi xabarlarni ekranga chiqarish
+  for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+      st.markdown(message["content"])
+
+  # Enter bosilganda ishlaydigan input
+  if savol := st.chat_input("Menga biror savol bering..."):
+    # Foydalanuvchi xabarini qo'shish
+    st.session_state.messages.append({"role": "user", "content": savol})
+    with st.chat_message("user"):
+      st.markdown(savol)
+
+    # Bot javobi (Hozircha vaqtinchalik javob, keyin API ulanadi)
+    bot_javobi = (
+        f"NexoraAI javobi: Siz '{savol}' deb yordam so'radingiz. Tez orada"
+        " to'liq sun'iy intellekt javobi ulanadi!"
+    )
+    st.session_state.messages.append({"role": "assistant", "content": bot_javobi})
+    with st.chat_message("assistant"):
+      st.markdown(bot_javobi)
 
 # 2. Tarjima qilish moduli
 elif menu == "🌍 Tarjima qilish":
@@ -45,32 +60,43 @@ elif menu == "🌍 Tarjima qilish":
       "Qaysi tilga tarjima qilamiz?", ["Ingliz tili", "Rus tili", "O'zbek tili"]
   )
   if st.button("Tarjima qilish"):
-    st.info(
-        f"('{matn}') matni tez orada {til}ga tarjima qilinadigan qilib"
-        " sozlanadi."
-    )
+    if matn.strip():
+      st.info(
+          f"('{matn}') matni tez orada {til}ga tarjima qilinadigan qilib"
+          " sozlanadi."
+      )
+    else:
+      st.warning("Iltimos, tarjima uchun matn kiriting.")
 
 # 3. G'oyalar berish moduli
 elif menu == "💡 G‘oyalar berish":
-  st.header("💡 Loyoya yoki mavzu uchun g'oyalar")
+  st.header("💡 Loyiha yoki mavzu uchun g'oyalar")
   mavzu = st.text_input("Qaysi mavzuda g'oya kerak?")
   if st.button("G'oya topish"):
-    st.write(
-        f"'{mavzu}' bo'yicha eng zo'r g'oyalar ro'yxati tez orada bu yerda"
-        " chiqadi!"
-    )
+    if mavzu.strip():
+      st.write(
+          f"'{mavzu}' bo'yicha eng zo'r g'oyalar ro'yxati tez orada bu yerda"
+          " chiqadi!"
+      )
+    else:
+      st.warning("Iltimos, mavzu kiriting.")
 
 # 4. Kod yozish moduli
 elif menu == "💻 Kod yozish":
   st.header("💻 Kod yozish va tahlil qilish")
-  dastur_tili = st.selectbox("Dasturlash tilini tanlang:", ["Python", "JavaScript", "C++"])
+  dastur_tili = st.selectbox(
+      "Dasturlash tilini tanlang:", ["Python", "JavaScript", "C++"]
+  )
   vazifa = st.text_area("Qanday dastur kerakligini yozing:")
   if st.button("Kod generatsiya qilish"):
-    st.code(
-        f"# {dastur_tili} tilida '{vazifa}' uchun namuna kod\nprint('Salom,"
-        " NexoraAI!')",
-        language="python",
-    )
+    if vazifa.strip():
+      st.code(
+          f"# {dastur_tili} tilida '{vazifa}' uchun namuna kod\nprint('Salom,"
+          " NexoraAI!')",
+          language="python",
+      )
+    else:
+      st.warning("Iltimos, vazifani yozing.")
 
 # Pastki izoh
 st.sidebar.markdown("---")

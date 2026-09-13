@@ -25,10 +25,16 @@ class AIEngine:
             self.client = Groq(api_key=clean_key)
 
     def set_model(self, model_name: str):
-        if "gpt" in model_name.lower():
-            self.model = "llama-3.3-70b-versatile"
-        else:
+        valid_models = [
+            "llama-3.3-70b-versatile",
+            "llama3-70b-8192",
+            "llama3-8b-8192",
+            "mixtral-8x7b-32768",
+        ]
+        if model_name in valid_models:
             self.model = model_name
+        else:
+            self.model = "llama-3.3-70b-versatile"
 
     def stream_chat(
         self,
@@ -111,5 +117,4 @@ Kod so‘ralsa, kodni markdown code block ichida yozing.
         return "⚠️ Rasmni tahlil qilish imkoniyati Groq matn modelida mavjud emas."
 
 
-# Obyektni faqat bir marta hosil qilamiz
 ai = AIEngine()

@@ -6,6 +6,7 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
+        # Model nomini to'g'rilaymiz ("llama" - "m" bilan)
         self.model = "llama-3.3-70b-versatile"
         self.client = None
         self._init_client()
@@ -25,6 +26,7 @@ class AIEngine:
             self.client = Groq(api_key=clean_key)
 
     def set_model(self, model_name: str):
+        # Agar noto'g'ri nom (masalan, llana yoki gpt) yuborilsa, avtomatik to'g'rilaydi
         valid_models = [
             "llama-3.3-70b-versatile",
             "llama3-70b-8192",

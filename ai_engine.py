@@ -2,11 +2,9 @@ import os
 import streamlit as st
 from groq import Groq
 
-
 class AIEngine:
-
     def __init__(self):
-        # Model nomini to'g'rilaymiz ("llama" - "m" bilan)
+        # Defolt model nomi
         self.model = "llama-3.3-70b-versatile"
         self.client = None
         self._init_client()
@@ -26,26 +24,20 @@ class AIEngine:
             self.client = Groq(api_key=clean_key)
 
     def set_model(self, model_name: str):
-        # Agar noto'g'ri nom (masalan, llana yoki gpt) yuborilsa, avtomatik to'g'rilaydi
+        # Yaroqli Groq modellar ro'yxati
         valid_models = [
             "llama-3.3-70b-versatile",
             "llama3-70b-8192",
             "llama3-8b-8192",
-            "mixtral-8x7b-32768",
+            "mixtral-8x7b-32768"
         ]
+        # Agar kelgan nom ro'yxatda bo'lsa o'rnatadi, aks holda standart modelni tanlaydi
         if model_name in valid_models:
             self.model = model_name
         else:
             self.model = "llama-3.3-70b-versatile"
 
-    def stream_chat(
-        self,
-        user_prompt: str,
-        history=None,
-        context: str = "",
-        web_search: str = "",
-        deep_thinking: bool = False,
-    ):
+    def stream_chat(self, user_prompt: str, history=None, context: str = "", web_search: str = "", deep_thinking: bool = False):
         if self.client is None:
             self._init_client()
 
@@ -57,9 +49,7 @@ class AIEngine:
 Siz EduMindAI Enterprise sun'iy intellekt assistentisiz.
 Foydalanuvchiga aniq, foydali va tushunarli javob bering.
 Foydalanuvchi qaysi tilda yozsa, shu tilda javob bering.
-Kod so‘ralsa, kodni markdown code block ichida yozing.
 """
-
         messages = [{"role": "system", "content": system_prompt}]
 
         if history:
@@ -67,9 +57,7 @@ Kod so‘ralsa, kodni markdown code block ichida yozing.
                 if message.get("role") in ["user", "assistant"]:
                     content = message.get("content", "")
                     if content:
-                        messages.append(
-                            {"role": message["role"], "content": str(content)}
-                        )
+                        messages.append({"role": message["role"], "content": str(content)})
 
         full_user_prompt = user_prompt
         if context:
@@ -81,7 +69,9 @@ Kod so‘ralsa, kodni markdown code block ichida yozing.
 
         try:
             response = self.client.chat.completions.create(
-                model=self.model, messages=messages, stream=True
+                model=self.model,
+                messages=messages,
+                stream=True
             )
 
             for chunk in response:
@@ -91,32 +81,16 @@ Kod so‘ralsa, kodni markdown code block ichida yozing.
         except Exception as e:
             yield f"❌ Groq xatosi: {str(e)}"
 
-    def chat(
-        self,
-        user_prompt: str,
-        history=None,
-        context: str = "",
-        web_search: str = "",
-        deep_thinking: bool = False,
-    ):
+    def chat(self, user_prompt: str, history=None, context: str = "", web_search: str = "", deep_thinking: bool = False):
         answer = ""
-        for chunk in self.stream_chat(
-            user_prompt=user_prompt,
-            history=history,
-            context=context,
-            web_search=web_search,
-            deep_thinking=deep_thinking,
-        ):
+        for chunk in self.stream_chat(user_prompt=user_prompt, history=history, context=context, web_search=web_search, deep_thinking=deep_thinking):
             answer += str(chunk)
         return answer
 
-    def generate_image(
-        self, prompt: str, style: str = "Realistic", aspect_ratio: str = "1:1"
-    ):
+    def generate_image(self, prompt: str, style: str = "Realistic", aspect_ratio: str = "1:1"):
         return "⚠️ Rasm generatsiyasi Groq matn modelida mavjud emas."
 
     def vision_chat(self, image, user_prompt: str):
         return "⚠️ Rasmni tahlil qilish imkoniyati Groq matn modelida mavjud emas."
-
 
 ai = AIEngine()

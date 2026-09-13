@@ -1,2 +1,15 @@
 streamlit
-groq
+openai
+streamlit-mic-recorder
+pandas
+openpyxl
+python-docx
+reportlab
+requests
+beautifulsoup4
+python-dotenv
+duckduckgo-search
+edge-tts
+PyMuPDF
+fpdf
+plotly

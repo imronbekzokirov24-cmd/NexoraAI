@@ -1,4 +1,5 @@
 import streamlit as st
+from groq import Groq
 
 # Sahifa sozlamalari
 st.set_page_config(
@@ -23,9 +24,18 @@ menu = st.sidebar.selectbox(
     ],
 )
 
-# 1. Aqlli suhbat moduli (Enter bosganda ishlaydigan chat interfeysi)
+# 1. Aqlli suhbat moduli (Groq API ulangan)
 if menu == "🧠 Aqlli suhbat":
   st.header("🧠 Aqlli suhbat bilan muloqot")
+
+  # Groq mijozini ishga tushirish
+  try:
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+  except Exception:
+    st.error(
+        "Iltimos, Streamlit Secrets ga GROQ_API_KEY ni to'g'ri kiriting!"
+    )
+    client = None
 
   # Xabarlarni saqlash uchun state
   if "messages" not in st.session_state:
@@ -36,21 +46,35 @@ if menu == "🧠 Aqlli suhbat":
     with st.chat_message(message["role"]):
       st.markdown(message["content"])
 
-  # Enter bosilganda ishlaydigan input
+  # Enter bosilganda ishlaydigan chat input
   if savol := st.chat_input("Menga biror savol bering..."):
     # Foydalanuvchi xabarini qo'shish
     st.session_state.messages.append({"role": "user", "content": savol})
     with st.chat_message("user"):
       st.markdown(savol)
 
-    # Bot javobi (Hozircha vaqtinchalik javob, keyin API ulanadi)
-    bot_javobi = (
-        f"NexoraAI javobi: Siz '{savol}' deb yordam so'radingiz. Tez orada"
-        " to'liq sun'iy intellekt javobi ulanadi!"
-    )
-    st.session_state.messages.append({"role": "assistant", "content": bot_javobi})
-    with st.chat_message("assistant"):
-      st.markdown(bot_javobi)
+    # Groq API orqali haqiqiy sun'iy intellekt javobini olish
+    if client:
+      with st.chat_message("assistant"):
+        with st.spinner("NexoraAI o'ylamoqda..."):
+          try:
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": m["role"], "content": m["content"]}
+                    for m in st.session_state.messages
+                ],
+            )
+            bot_javobi = response.choices[0].message.content
+          except Exception as e:
+            bot_javobi = f"Xatolik yuz berdi: {e}"
+
+          st.markdown(bot_javobi)
+          st.session_state.messages.append(
+              {"role": "assistant", "content": bot_javobi}
+          )
+    else:
+      st.warning("API kalit topilmadi.")
 
 # 2. Tarjima qilish moduli
 elif menu == "🌍 Tarjima qilish":

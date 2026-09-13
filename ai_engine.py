@@ -6,20 +6,25 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
-        # Groq'dagi eng kuchli va bepul Llama 3.3 modeli
         self.model = "llama-3.3-70b-versatile"
+        self.client = None
+        self._init_client()
 
+    def _init_client(self):
+        # Kalitni st.secrets yoki os.environ'dan majburiy o'qish
+        api_key = None
         try:
-            # Secrets yoki OS muhitidan Groq kalitini olish
-            api_key = st.secrets.get("GROQ_API_KEY") or os.environ.get(
-                "GROQ_API_KEY"
-            )
-            if api_key:
-                self.client = Groq(api_key=api_key)
-            else:
-                self.client = None
+            if "GROQ_API_KEY" in st.secrets:
+                api_key = st.secrets["GROQ_API_KEY"]
+            elif "GROQ_API_KEY" in os.environ:
+                api_key = os.environ["GROQ_API_KEY"]
         except Exception:
-            self.client = None
+            pass
+
+        if api_key:
+            # Bo'sh joylar yoki ortiqcha belgilardan tozalash
+            api_key = str(api_key).strip().strip('"').strip("'")
+            self.client = Groq(api_key=api_key)
 
     def set_model(self, model_name: str):
         self.model = model_name
@@ -32,6 +37,10 @@ class AIEngine:
         web_search: str = "",
         deep_thinking: bool = False,
     ):
+        # Klient yuklanmagan bo'lsa qayta urinib ko'rish
+        if self.client is None:
+            self._init_client()
+
         if self.client is None:
             yield "❌ GROQ_API_KEY topilmadi. Streamlit Secrets bo‘limini tekshiring."
             return
@@ -43,12 +52,6 @@ Foydalanuvchi qaysi tilda yozsa, shu tilda javob bering.
 Kod so‘ralsa, kodni markdown code block ichida yozing.
 """
 
-        if deep_thinking:
-            system_prompt += """
-Masalani diqqat bilan tahlil qiling va yakuniy javobni
-aniq va tushunarli qilib bering.
-"""
-
         messages = [{"role": "system", "content": system_prompt}]
 
         if history:
@@ -57,10 +60,7 @@ aniq va tushunarli qilib bering.
                     content = message.get("content", "")
                     if content:
                         messages.append(
-                            {
-                                "role": message["role"],
-                                "content": str(content),
-                            }
+                            {"role": message["role"], "content": str(content)}
                         )
 
         full_user_prompt = user_prompt
@@ -108,7 +108,7 @@ aniq va tushunarli qilib bering.
         return "⚠️ Rasm generatsiyasi Groq matn modelida mavjud emas."
 
     def vision_chat(self, image, user_prompt: str):
-        return "⚠️ Rasmni tahlil qilish imkoniyati Groq matn modelida cheklangan."
+        return "⚠️ Rasmni tahlil qilish imkoniyati o'chirilgan."
 
 
 ai = AIEngine()

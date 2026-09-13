@@ -59,7 +59,7 @@ if menu == "🧠 Aqlli suhbat":
         with st.spinner("NexoraAI o'ylamoqda..."):
           try:
             response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.1-8b-instant",
                 messages=[
                     {"role": m["role"], "content": m["content"]}
                     for m in st.session_state.messages

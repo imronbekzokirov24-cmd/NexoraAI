@@ -142,7 +142,6 @@ with st.sidebar:
     ai_model = st.selectbox(
         "AI Model",
         [
-            "llama-3.3-70b-versatile",
             "llama3-70b-8192",
             "llama3-8b-8192",
             "mixtral-8x7b-32768",

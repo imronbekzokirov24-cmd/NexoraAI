@@ -1,114 +1,408 @@
-import os
-import streamlit as st
-from groq import Groq
-
-
-class AIEngine:
-
-    def __init__(self):
-        self.model = "llama-3.3-70b-versatile"
-        self.client = None
-        self._init_client()
-
-    def _init_client(self):
-        # Kalitni st.secrets yoki os.environ'dan majburiy o'qish
-        api_key = None
-        try:
-            if "GROQ_API_KEY" in st.secrets:
-                api_key = st.secrets["GROQ_API_KEY"]
-            elif "GROQ_API_KEY" in os.environ:
-                api_key = os.environ["GROQ_API_KEY"]
-        except Exception:
-            pass
-
-        if api_key:
-            # Bo'sh joylar yoki ortiqcha belgilardan tozalash
-            api_key = str(api_key).strip().strip('"').strip("'")
-            self.client = Groq(api_key=api_key)
-
-    def set_model(self, model_name: str):
-        self.model = model_name
-
-    def stream_chat(
-        self,
-        user_prompt: str,
-        history=None,
-        context: str = "",
-        web_search: str = "",
-        deep_thinking: bool = False,
-    ):
-        # Klient yuklanmagan bo'lsa qayta urinib ko'rish
-        if self.client is None:
-            self._init_client()
-
-        if self.client is None:
-            yield "❌ GROQ_API_KEY topilmadi. Streamlit Secrets bo‘limini tekshiring."
-            return
-
-        system_prompt = """
-Siz EduMindAI Enterprise sun'iy intellekt assistentisiz.
-Foydalanuvchiga aniq, foydali va tushunarli javob bering.
-Foydalanuvchi qaysi tilda yozsa, shu tilda javob bering.
-Kod so‘ralsa, kodni markdown code block ichida yozing.
+"""
+============================================================
+EduMindAI Enterprise v3.5 (Pro Edition)
+Main Application
+============================================================
 """
 
-        messages = [{"role": "system", "content": system_prompt}]
+import uuid
+import streamlit as st
+from streamlit_mic_recorder import mic_recorder
 
-        if history:
-            for message in history:
-                if message.get("role") in ["user", "assistant"]:
-                    content = message.get("content", "")
-                    if content:
-                        messages.append(
-                            {"role": message["role"], "content": str(content)}
-                        )
+from config import *
+from database import db
+from ai_engine import ai
+from search import search
+from speech import speech
+from vision import vision
+from pdf_reader import pdf_reader
+from style import style
+from export_utils import exporter
+from data_analyzer import analyzer
+from url_scraper import scraper
 
-        full_user_prompt = user_prompt
-        if context:
-            full_user_prompt += f"\n\nQo‘shimcha hujjat/data:\n{context}"
-        if web_search:
-            full_user_prompt += f"\n\nInternet qidiruv natijalari:\n{web_search}"
+style.load()
 
-        messages.append({"role": "user", "content": full_user_prompt})
+# ==========================================================
+# PAGE CONFIG
+# ==========================================================
+
+st.set_page_config(
+    page_title="EduMindAI Enterprise",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ==========================================================
+# SESSION STATE & INITIALIZATION
+# ==========================================================
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+
+if "user_id" not in st.session_state:
+    st.session_state.user_id = str(uuid.uuid4())
+
+if "plan" not in st.session_state:
+    st.session_state.plan = "Pro Enterprise"
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "active_image" not in st.session_state:
+    st.session_state.active_image = None
+
+if "document_text" not in st.session_state:
+    st.session_state.document_text = ""
+
+if "data_summary" not in st.session_state:
+    st.session_state.data_summary = ""
+
+if "url_text" not in st.session_state:
+    st.session_state.url_text = ""
+
+if "prefilled_prompt" not in st.session_state:
+    st.session_state.prefilled_prompt = ""
+
+if "total_prompts" not in st.session_state:
+    st.session_state.total_prompts = 0
+
+# ==========================================================
+# TITLE & HEADER
+# ==========================================================
+
+st.title("🧠 EduMindAI Enterprise v3.5")
+st.caption(
+    "AI Chat • Multilingual • Code Interpreter • Vision • PDF/Excel • Web Scraper • Deep Reasoning"
+)
+st.divider()
+
+# ==========================================================
+# SIDEBAR
+# ==========================================================
+
+with st.sidebar:
+    st.title("⚙️ EduMindAI Control Center")
+    st.markdown("---")
+
+    # 1. ACCOUNT / SIGN IN BO'LIMI
+    st.subheader("👤 Account")
+
+    if not st.session_state.logged_in:
+        st.write("Tizimga kirish uchun email va parolingizni kiriting:")
+        email_input = st.text_input("Email:", placeholder="example@gmail.com")
+        password_input = st.text_input(
+            "Parol:", type="password", placeholder="******"
+        )
+
+        if st.button("🔑 Sign In", use_container_width=True):
+            if email_input and "@" in email_input:
+                st.session_state.logged_in = True
+                st.session_state.user_email = email_input
+                st.success("Muvaffaqiyatli kirdingiz!")
+                st.rerun()
+            else:
+                st.error("Iltimos, to'g'ri email manzilini kiriting!")
+    else:
+        st.write(f"**Email:** {st.session_state.user_email}")
+        st.write(f"**Tarif:** {st.session_state.plan}")
+        if st.button("🚪 Sign Out", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.user_email = ""
+            st.rerun()
+
+    st.markdown("---")
+
+    # 2. TIZIM STATISTIKASI (Dashboard Widget)
+    st.subheader("📊 Usage Dashboard")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(label="Xabarlar", value=len(st.session_state.messages))
+    with col2:
+        st.metric(label="So'rovlar", value=st.session_state.total_prompts)
+
+    st.markdown("---")
+
+    # 3. LANGUAGE SELECTION
+    st.subheader("🌐 Language Settings")
+    app_language = st.selectbox(
+        "Muloqot tili (Language):",
+        ["O'zbekcha", "English", "Русский"],
+        index=0,
+    )
+
+    st.markdown("---")
+
+    # 4. AI SETTINGS & MODEL SELECTION
+    st.subheader("🤖 AI Settings")
+    ai_model = st.selectbox(
+        "AI Model",
+        ["llama-3.3-70b-versatile", "llama3-8b-8192", "mixtral-8x7b-32768"],
+        index=0,
+    )
+    ai.set_model(ai_model)
+
+    st.markdown("---")
+
+    # 5. FEATURES & TOGGLES
+    st.subheader("⚡ Features")
+    enable_web = st.toggle("🌐 Internet Search", value=True)
+    enable_memory = st.toggle("🧠 Conversation Memory", value=True)
+    enable_tts = st.toggle("🔊 Voice Response", value=False)
+
+    voice_gender = "Ayol"
+    if enable_tts:
+        voice_gender = st.radio(
+            "Ovoz turi:", ["Ayol", "Erkak"], horizontal=True
+        )
+
+    enable_img_gen = st.toggle("🎨 Image Generation", value=False)
+    enable_deep_think = st.toggle("🔬 Deep Thinking Mode", value=False)
+
+    img_style = "Realistic"
+    img_aspect = "1:1"
+    if enable_img_gen:
+        st.markdown("---")
+        st.subheader("🎨 Image Settings")
+        img_style = st.selectbox(
+            "Uslub (Style):",
+            [
+                "Realistic",
+                "Anime",
+                "3D Render",
+                "Cyberpunk",
+                "Oil Painting",
+                "Digital Art",
+            ],
+        )
+        img_aspect = st.selectbox("O'lcham (Aspect Ratio):", ["1:1", "16:9", "9:16"])
+
+    st.markdown("---")
+
+    # PROMPT TEMPLATES
+    try:
+        from prompt_templates import templates
+
+        template_prefix = templates.render_templates()
+        if template_prefix:
+            st.session_state.prefilled_prompt = template_prefix
+            st.success("Shablon tanlandi! Matningizni kiriting.")
+    except Exception:
+        pass
+
+    st.markdown("---")
+
+    # 🔗 URL SCRAPER
+    st.subheader("🔗 Web Page / Link Analyzer")
+    web_url = st.text_input("Veb-sayt havolasi (https://...)")
+    if web_url:
+        with st.spinner("🔗 Sayt tahlil qilinmoqda..."):
+            st.session_state.url_text = scraper.scrape_url(web_url)
+            if st.session_state.url_text:
+                st.success("Veb-sayt matni yuklandi!")
+
+    st.markdown("---")
+
+    # 🎙️ VOICE INPUT
+    st.subheader("🎙️ Voice Input")
+    audio_record = mic_recorder(
+        start_prompt="🔴 Ovoz yozish",
+        stop_prompt="⬛ To'xtatish",
+        key="recorder",
+    )
+
+    st.markdown("---")
+
+    # 📥 EXPORT CHAT
+    st.subheader("📥 Export Chat")
+    if st.session_state.messages:
+        docx_data = exporter.to_docx(st.session_state.messages)
+        st.download_button(
+            label="📄 Word (.docx)",
+            data=docx_data,
+            file_name="edumind_chat.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+        )
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model, messages=messages, stream=True
+            pdf_data = exporter.to_pdf(st.session_state.messages)
+            st.download_button(
+                label="📕 PDF (.pdf)",
+                data=bytes(pdf_data),
+                file_name="edumind_chat.pdf",
+                mime="application/pdf",
+                use_container_width=True,
             )
+        except Exception:
+            pass
+    else:
+        st.caption("Chatda xabarlar yo'q.")
 
-            for chunk in response:
-                if chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
+    st.markdown("---")
 
-        except Exception as e:
-            yield f"❌ Groq xatosi: {str(e)}"
+    # 📄 DOCUMENT UPLOAD
+    st.subheader("📄 Upload Document")
+    uploaded_files = st.file_uploader(
+        "PDF / TXT fayllar", type=["pdf", "txt"], accept_multiple_files=True
+    )
+    if uploaded_files:
+        st.session_state.document_text = pdf_reader.read_multiple(
+            uploaded_files
+        )
+        st.success("Hujjatlar yuklandi.")
 
-    def chat(
-        self,
-        user_prompt: str,
-        history=None,
-        context: str = "",
-        web_search: str = "",
-        deep_thinking: bool = False,
-    ):
-        answer = ""
-        for chunk in self.stream_chat(
-            user_prompt=user_prompt,
-            history=history,
-            context=context,
-            web_search=web_search,
-            deep_thinking=deep_thinking,
-        ):
-            answer += str(chunk)
-        return answer
+    st.markdown("---")
 
-    def generate_image(
-        self, prompt: str, style: str = "Realistic", aspect_ratio: str = "1:1"
-    ):
-        return "⚠️ Rasm generatsiyasi Groq matn modelida mavjud emas."
+    # 📊 EXCEL / CSV UPLOAD
+    st.subheader("📊 Upload Data (Excel/CSV)")
+    data_file = st.file_uploader("Excel / CSV fayl", type=["csv", "xlsx", "xls"])
+    if data_file:
+        df = analyzer.read_file(data_file)
+        if df is not None:
+            st.session_state.data_summary = analyzer.analyze_and_display(df)
 
-    def vision_chat(self, image, user_prompt: str):
-        return "⚠️ Rasmni tahlil qilish imkoniyati o'chirilgan."
+    st.markdown("---")
 
+    # 🖼️ IMAGE UPLOAD
+    st.subheader("🖼️ Upload Image")
+    uploaded_image_file = st.file_uploader(
+        "Rasm yuklash", type=["png", "jpg", "jpeg"], key="img_input"
+    )
 
-ai = AIEngine()
+    if uploaded_image_file is not None:
+        st.session_state.active_image = uploaded_image_file
+        st.image(
+            uploaded_image_file,
+            caption="Kiritilgan rasm",
+            use_container_width=True,
+        )
+
+    st.markdown("---")
+
+    if st.button("🗑 Clear Chat & History", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.active_image = None
+        st.session_state.document_text = ""
+        st.session_state.data_summary = ""
+        st.session_state.url_text = ""
+        st.session_state.prefilled_prompt = ""
+        st.rerun()
+
+# ==========================================================
+# CHAT HISTORY DISPLAY
+# ==========================================================
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        if message.get("image") is not None:
+            st.image(message["image"], use_container_width=True)
+        st.markdown(message["content"])
+
+# ==========================================================
+# CHAT INPUT & CORE LOGIC
+# ==========================================================
+
+text_prompt = st.chat_input("EduMindAI bilan suhbatni boshlang...")
+
+prompt = None
+if text_prompt:
+    prompt = text_prompt
+elif audio_record and "bytes" in audio_record:
+    st.audio(audio_record["bytes"], format="audio/wav")
+    prompt = "Ovozli xabar qabul qilindi. Ushbu xabarga mos javob ber."
+
+if prompt:
+    st.session_state.total_prompts += 1
+
+    lang_instruction = (
+        f"\n\n[SYSTEM INSTRUCTION: Javobni {app_language} tilda bering.]"
+    )
+
+    if st.session_state.prefilled_prompt:
+        prompt = st.session_state.prefilled_prompt + prompt
+        st.session_state.prefilled_prompt = ""
+
+    prompt_with_lang = prompt + lang_instruction
+    current_img = st.session_state.active_image
+
+    st.session_state.messages.append(
+        {"role": "user", "content": prompt, "image": current_img}
+    )
+
+    with st.chat_message("user"):
+        if current_img is not None:
+            st.image(current_img, use_container_width=True)
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        response = ""
+
+        # 1. RASM YARATISH
+        if enable_img_gen:
+            with st.spinner("🎨 AI rasm chizmoqda..."):
+                img_url = ai.generate_image(
+                    prompt, style=img_style, aspect_ratio=img_aspect
+                )
+                if img_url:
+                    st.image(
+                        img_url,
+                        caption=f"Yaratilgan rasm ({img_style}, {img_aspect}): {prompt}",
+                        use_container_width=True,
+                    )
+                    response = f"Mana siz so'ragan rasm ({img_style} uslubida): {img_url}"
+                else:
+                    response = "❌ Rasm yaratishda xatolik yuz berdi."
+            placeholder.markdown(response)
+
+        # 2. RASM TAHLILI (VISION)
+        elif current_img is not None:
+            with st.spinner("🖼️ AI rasmni ko'rib tahlil qilmoqda..."):
+                response = ai.vision_chat(
+                    image=current_img, user_prompt=prompt_with_lang
+                )
+            placeholder.markdown(response)
+            st.session_state.active_image = None
+
+        # 3. MATNLI CHAT
+        else:
+            web_context = ""
+            if enable_web:
+                with st.spinner("🌐 Internetdan qidirilmoqda..."):
+                    web_context = search.search_context(prompt)
+
+            full_context = st.session_state.document_text
+            if st.session_state.data_summary:
+                full_context += f"\n\n[EXCEL/CSV DATA SUMMARY]:\n{st.session_state.data_summary}"
+            if st.session_state.url_text:
+                full_context += (
+                    f"\n\n[WEBPAGE URL CONTENT]:\n{st.session_state.url_text}"
+                )
+
+            with st.spinner("🤖 EduMindAI javob bermoqda..."):
+                history = st.session_state.messages if enable_memory else None
+                for chunk in ai.stream_chat(
+                    user_prompt=prompt_with_lang,
+                    history=history,
+                    context=full_context,
+                    web_search=web_context,
+                    deep_thinking=enable_deep_think,
+                ):
+                    if chunk is not None:
+                        response += str(chunk)
+                        placeholder.markdown(response + "▌")
+            placeholder.markdown(response)
+
+        if enable_tts and not enable_img_gen:
+            audio = speech.quick(response)
+            if audio:
+                st.audio(audio)
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": response, "image": None}
+    )

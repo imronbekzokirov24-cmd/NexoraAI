@@ -137,7 +137,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # 4. AI SETTINGS & MODEL SELECTION
+    # 4. AI SETTINGS & MODEL SELECTION (BUYERDA MODEL NOMI TO'G'RILANDI)
     st.subheader("🤖 AI Settings")
     ai_model = st.selectbox(
         "AI Model",

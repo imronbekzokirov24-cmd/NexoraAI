@@ -1,5 +1,6 @@
 import os
 import base64
+import requests
 import streamlit as st
 from groq import Groq
 
@@ -7,16 +8,13 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
-        # Hozirgi Groq modeli
         self.model = "openai/gpt-oss-20b"
-
         self.client = None
-
         self._init_client()
 
-    # =========================================================
-    # GROQ API
-    # =========================================================
+    # =====================================================
+    # GROQ
+    # =====================================================
 
     def _init_client(self):
 
@@ -45,26 +43,25 @@ class AIEngine:
                 api_key=clean_key
             )
 
-    # =========================================================
-    # MODEL TANLASH
-    # =========================================================
+    # =====================================================
+    # MODEL
+    # =====================================================
 
     def set_model(self, model_name: str):
 
         valid_models = [
             "openai/gpt-oss-20b",
-            "openai/gpt-oss-120b",
+            "openai/gpt-oss-120b"
         ]
 
         if model_name in valid_models:
             self.model = model_name
-
         else:
             self.model = "openai/gpt-oss-20b"
 
-    # =========================================================
-    # STREAM CHAT
-    # =========================================================
+    # =====================================================
+    # CHAT
+    # =====================================================
 
     def stream_chat(
         self,
@@ -79,25 +76,20 @@ class AIEngine:
             self._init_client()
 
         if self.client is None:
-
-            yield (
-                "❌ GROQ_API_KEY topilmadi. "
-                "Streamlit Secrets bo‘limini tekshiring."
-            )
-
+            yield "❌ GROQ_API_KEY topilmadi."
             return
 
         system_prompt = """
-Siz EduMindAI Enterprise v3.5 sun'iy intellekt assistentisiz.
+Siz EduMindAI Enterprise v3.5
+sun'iy intellekt assistentisiz.
 
-Foydalanuvchiga aniq, foydali va tushunarli javob bering.
+Foydalanuvchiga aniq, foydali
+va tushunarli javob bering.
 
 Foydalanuvchi qaysi tilda yozsa,
 shu tilda javob bering.
 
-Kod so‘ralsa, to‘liq va ishlaydigan kod yozing.
-
-Savollarga imkon qadar aniq javob bering.
+Kod so'ralsa, ishlaydigan kod yozing.
 """
 
         messages = [
@@ -106,10 +98,6 @@ Savollarga imkon qadar aniq javob bering.
                 "content": system_prompt
             }
         ]
-
-        # -----------------------------------------------------
-        # CHAT HISTORY
-        # -----------------------------------------------------
 
         if history:
 
@@ -127,43 +115,31 @@ Savollarga imkon qadar aniq javob bering.
 
                     if content:
 
-                        messages.append(
-                            {
-                                "role": message["role"],
-                                "content": str(content)
-                            }
-                        )
+                        messages.append({
+                            "role": message["role"],
+                            "content": str(content)
+                        })
 
-        # -----------------------------------------------------
-        # USER PROMPT
-        # -----------------------------------------------------
-
-        full_user_prompt = user_prompt
+        full_prompt = user_prompt
 
         if context:
 
-            full_user_prompt += (
-                "\n\nQo‘shimcha hujjat/data:\n"
+            full_prompt += (
+                "\n\nQo'shimcha ma'lumot:\n"
                 + str(context)
             )
 
         if web_search:
 
-            full_user_prompt += (
-                "\n\nInternet qidiruv natijalari:\n"
+            full_prompt += (
+                "\n\nInternet natijalari:\n"
                 + str(web_search)
             )
 
-        messages.append(
-            {
-                "role": "user",
-                "content": full_user_prompt
-            }
-        )
-
-        # -----------------------------------------------------
-        # GROQ REQUEST
-        # -----------------------------------------------------
+        messages.append({
+            "role": "user",
+            "content": full_prompt
+        })
 
         try:
 
@@ -190,9 +166,9 @@ Savollarga imkon qadar aniq javob bering.
                 + str(e)
             )
 
-    # =========================================================
-    # ODDIY CHAT
-    # =========================================================
+    # =====================================================
+    # CHAT
+    # =====================================================
 
     def chat(
         self,
@@ -206,20 +182,20 @@ Savollarga imkon qadar aniq javob bering.
         answer = ""
 
         for chunk in self.stream_chat(
-            user_prompt=user_prompt,
-            history=history,
-            context=context,
-            web_search=web_search,
-            deep_thinking=deep_thinking
+            user_prompt,
+            history,
+            context,
+            web_search,
+            deep_thinking
         ):
 
             answer += str(chunk)
 
         return answer
 
-    # =========================================================
-    # 🎨 RASM YARATISH
-    # =========================================================
+    # =====================================================
+    # IMAGE GENERATION
+    # =====================================================
 
     def generate_image(
         self,
@@ -228,129 +204,20 @@ Savollarga imkon qadar aniq javob bering.
         aspect_ratio: str = "1:1"
     ):
 
-        try:
+        # OpenAI API ishlatilmaydi.
+        #
+        # Hozircha rasm yaratish o'chirilgan.
+        # Bu yerga keyinchalik local/free
+        # image model ulash mumkin.
 
-            # OpenAI kutubxonasini shu yerda import qilamiz
-            from openai import OpenAI
-
-        except ImportError:
-
-            return (
-                "❌ OpenAI kutubxonasi o‘rnatilmagan. "
-                "requirements.txt fayliga openai qo‘shing."
-            )
-
-        # -----------------------------------------------------
-        # OPENAI API KEY
-        # -----------------------------------------------------
-
-        api_key = None
-
-        try:
-
-            if "OPENAI_API_KEY" in st.secrets:
-
-                api_key = st.secrets[
-                    "OPENAI_API_KEY"
-                ]
-
-            elif "OPENAI_API_KEY" in os.environ:
-
-                api_key = os.environ[
-                    "OPENAI_API_KEY"
-                ]
-
-        except Exception:
-            pass
-
-        if not api_key:
-
-            return (
-                "❌ OPENAI_API_KEY topilmadi.\n\n"
-                "Streamlit Secrets bo‘limiga "
-                "OPENAI_API_KEY qo‘shing."
-            )
-
-        clean_key = (
-            str(api_key)
-            .strip()
-            .strip('"')
-            .strip("'")
+        return (
+            "🎨 Rasm yaratish moduli hozircha "
+            "o'chirilgan. OpenAI API ishlatilmaydi."
         )
 
-        # -----------------------------------------------------
-        # OPENAI CLIENT
-        # -----------------------------------------------------
-
-        try:
-
-            image_client = OpenAI(
-                api_key=clean_key
-            )
-
-        except Exception as e:
-
-            return (
-                "❌ OpenAI client xatosi: "
-                + str(e)
-            )
-
-        # -----------------------------------------------------
-        # PROMPT
-        # -----------------------------------------------------
-
-        full_prompt = f"""
-Create a high-quality image based on this description:
-
-{prompt}
-
-Visual style:
-{style}
-
-Aspect ratio requested:
-{aspect_ratio}
-
-Make the image detailed, clean, professional,
-visually attractive and well composed.
-"""
-
-        # -----------------------------------------------------
-        # IMAGE GENERATION
-        # -----------------------------------------------------
-
-        try:
-
-            result = image_client.images.generate(
-                model="gpt-image-2",
-                prompt=full_prompt
-            )
-
-            if not result.data:
-
-                return "❌ Rasm yaratilmadi."
-
-            image_data = result.data[0].b64_json
-
-            if not image_data:
-
-                return "❌ Rasm ma'lumoti olinmadi."
-
-            image_bytes = base64.b64decode(
-                image_data
-            )
-
-            return image_bytes
-
-        except Exception as e:
-
-            return (
-                "❌ Rasm yaratishda xato: "
-                + str(e)
-            )
-
-    # =========================================================
-    # 👁 VISION
-    # =========================================================
+    # =====================================================
+    # VISION
+    # =====================================================
 
     def vision_chat(
         self,
@@ -362,23 +229,16 @@ visually attractive and well composed.
             self._init_client()
 
         if self.client is None:
-
-            return (
-                "❌ GROQ_API_KEY topilmadi."
-            )
+            return "❌ GROQ_API_KEY topilmadi."
 
         try:
 
-            # Rasmni bytes ko‘rinishiga o'tkazish
             if hasattr(image, "read"):
-
                 image_bytes = image.read()
-
             else:
-
                 image_bytes = image
 
-            encoded_image = base64.b64encode(
+            encoded = base64.b64encode(
                 image_bytes
             ).decode("utf-8")
 
@@ -395,7 +255,7 @@ visually attractive and well composed.
                             "image_url": {
                                 "url":
                                 "data:image/png;base64,"
-                                + encoded_image
+                                + encoded
                             }
                         }
                     ]
@@ -416,9 +276,5 @@ visually attractive and well composed.
                 + str(e)
             )
 
-
-# =============================================================
-# GLOBAL AI ENGINE
-# =============================================================
 
 ai = AIEngine()

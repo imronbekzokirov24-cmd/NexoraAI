@@ -1,5 +1,7 @@
+```python
 import os
 import base64
+import io
 import requests
 import streamlit as st
 from groq import Groq
@@ -13,7 +15,7 @@ class AIEngine:
         self._init_client()
 
     # =====================================================
-    # GROQ
+    # GROQ CLIENT
     # =====================================================
 
     def _init_client(self):
@@ -39,9 +41,12 @@ class AIEngine:
                 .strip("'")
             )
 
-            self.client = Groq(
-                api_key=clean_key
-            )
+            try:
+                self.client = Groq(
+                    api_key=clean_key
+                )
+            except Exception:
+                self.client = None
 
     # =====================================================
     # MODEL
@@ -60,7 +65,7 @@ class AIEngine:
             self.model = "openai/gpt-oss-20b"
 
     # =====================================================
-    # CHAT
+    # STREAM CHAT
     # =====================================================
 
     def stream_chat(
@@ -136,6 +141,13 @@ Kod so'ralsa, ishlaydigan kod yozing.
                 + str(web_search)
             )
 
+        if deep_thinking:
+
+            full_prompt += (
+                "\n\nJavobni chuqur tahlil qilib,"
+                " bosqichma-bosqich tekshirib bering."
+            )
+
         messages.append({
             "role": "user",
             "content": full_prompt
@@ -154,7 +166,11 @@ Kod so'ralsa, ishlaydigan kod yozing.
                 if not chunk.choices:
                     continue
 
-                content = chunk.choices[0].delta.content
+                content = (
+                    chunk.choices[0]
+                    .delta
+                    .content
+                )
 
                 if content:
                     yield content
@@ -167,7 +183,7 @@ Kod so'ralsa, ishlaydigan kod yozing.
             )
 
     # =====================================================
-    # CHAT
+    # NORMAL CHAT
     # =====================================================
 
     def chat(
@@ -204,16 +220,257 @@ Kod so'ralsa, ishlaydigan kod yozing.
         aspect_ratio: str = "1:1"
     ):
 
-        # OpenAI API ishlatilmaydi.
-        #
-        # Hozircha rasm yaratish o'chirilgan.
-        # Bu yerga keyinchalik local/free
-        # image model ulash mumkin.
+        """
+        AI rasm yaratish.
 
-        return (
-            "🎨 Rasm yaratish moduli hozircha "
-            "o'chirilgan. OpenAI API ishlatilmaydi."
+        IMAGE_API_URL va IMAGE_API_KEY
+        Streamlit secrets yoki environment
+        orqali olinadi.
+
+        Agar image API sozlanmagan bo'lsa,
+        tushunarli xato qaytaradi.
+        """
+
+        # -------------------------------------------------
+        # API URL
+        # -------------------------------------------------
+
+        api_url = None
+        api_key = None
+
+        try:
+
+            if "IMAGE_API_URL" in st.secrets:
+                api_url = st.secrets["IMAGE_API_URL"]
+
+            if "IMAGE_API_KEY" in st.secrets:
+                api_key = st.secrets["IMAGE_API_KEY"]
+
+        except Exception:
+            pass
+
+        if not api_url:
+            api_url = os.environ.get(
+                "IMAGE_API_URL"
+            )
+
+        if not api_key:
+            api_key = os.environ.get(
+                "IMAGE_API_KEY"
+            )
+
+        # -------------------------------------------------
+        # API SOZLANMAGAN
+        # -------------------------------------------------
+
+        if not api_url:
+
+            return (
+                "❌ IMAGE_API_URL sozlanmagan.\n\n"
+                "Rasm generator API manzilini "
+                "ulash kerak."
+            )
+
+        # -------------------------------------------------
+        # PROMPT
+        # -------------------------------------------------
+
+        final_prompt = (
+            f"{prompt}\n\n"
+            f"Style: {style}\n"
+            f"Aspect ratio: {aspect_ratio}\n"
+            "High quality, detailed, professional "
+            "AI generated image."
         )
+
+        # -------------------------------------------------
+        # REQUEST
+        # -------------------------------------------------
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        if api_key:
+
+            headers["Authorization"] = (
+                "Bearer " + str(api_key)
+            )
+
+        payload = {
+            "prompt": final_prompt,
+            "style": style,
+            "aspect_ratio": aspect_ratio
+        }
+
+        try:
+
+            response = requests.post(
+                api_url,
+                headers=headers,
+                json=payload,
+                timeout=180
+            )
+
+            if response.status_code != 200:
+
+                return (
+                    "❌ Image API xatosi: "
+                    f"{response.status_code}\n\n"
+                    + response.text[:1000]
+                )
+
+            # ------------------------------------------------
+            # 1. TO'G'RIDAN-TO'G'RI IMAGE
+            # ------------------------------------------------
+
+            content_type = (
+                response.headers
+                .get(
+                    "content-type",
+                    ""
+                )
+                .lower()
+            )
+
+            if content_type.startswith("image/"):
+
+                return response.content
+
+            # ------------------------------------------------
+            # 2. JSON JAVOB
+            # ------------------------------------------------
+
+            try:
+
+                data = response.json()
+
+            except Exception:
+
+                return (
+                    "❌ Image API noto'g'ri "
+                    "javob qaytardi."
+                )
+
+            # ------------------------------------------------
+            # BASE64
+            # ------------------------------------------------
+
+            image_base64 = None
+
+            if isinstance(data, dict):
+
+                image_base64 = data.get(
+                    "image"
+                )
+
+                if not image_base64:
+
+                    image_base64 = data.get(
+                        "image_base64"
+                    )
+
+                if not image_base64:
+
+                    image_base64 = data.get(
+                        "b64_json"
+                    )
+
+            if image_base64:
+
+                try:
+
+                    if "," in image_base64:
+
+                        image_base64 = (
+                            image_base64
+                            .split(",", 1)[1]
+                        )
+
+                    return base64.b64decode(
+                        image_base64
+                    )
+
+                except Exception as e:
+
+                    return (
+                        "❌ Base64 rasmni "
+                        "o'qishda xato: "
+                        + str(e)
+                    )
+
+            # ------------------------------------------------
+            # IMAGE URL
+            # ------------------------------------------------
+
+            image_url = None
+
+            if isinstance(data, dict):
+
+                image_url = data.get(
+                    "url"
+                )
+
+                if not image_url:
+
+                    image_url = data.get(
+                        "image_url"
+                    )
+
+                if not image_url:
+
+                    image_url = data.get(
+                        "output"
+                    )
+
+            if image_url:
+
+                try:
+
+                    image_response = requests.get(
+                        image_url,
+                        timeout=120
+                    )
+
+                    if image_response.status_code == 200:
+
+                        return (
+                            image_response.content
+                        )
+
+                except Exception as e:
+
+                    return (
+                        "❌ Rasm URL'dan "
+                        "yuklanmadi: "
+                        + str(e)
+                    )
+
+            return (
+                "❌ Image API javobida "
+                "rasm topilmadi."
+            )
+
+        except requests.exceptions.Timeout:
+
+            return (
+                "❌ Rasm yaratish vaqti tugadi. "
+                "Qayta urinib ko'ring."
+            )
+
+        except requests.exceptions.ConnectionError:
+
+            return (
+                "❌ Image API bilan "
+                "bog'lanib bo'lmadi."
+            )
+
+        except Exception as e:
+
+            return (
+                "❌ Rasm yaratishda xato: "
+                + str(e)
+            )
 
     # =====================================================
     # VISION
@@ -234,8 +491,11 @@ Kod so'ralsa, ishlaydigan kod yozing.
         try:
 
             if hasattr(image, "read"):
+
                 image_bytes = image.read()
+
             else:
+
                 image_bytes = image
 
             encoded = base64.b64encode(
@@ -262,19 +522,35 @@ Kod so'ralsa, ishlaydigan kod yozing.
                 }
             ]
 
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages
+            response = (
+                self.client
+                .chat
+                .completions
+                .create(
+                    model=self.model,
+                    messages=messages
+                )
             )
 
-            return response.choices[0].message.content
+            return (
+                response
+                .choices[0]
+                .message
+                .content
+            )
 
         except Exception as e:
 
             return (
-                "❌ Rasmni tahlil qilishda xato: "
+                "❌ Rasmni tahlil qilishda "
+                "xato: "
                 + str(e)
             )
 
 
+# =========================================================
+# GLOBAL AI ENGINE
+# =========================================================
+
 ai = AIEngine()
+```

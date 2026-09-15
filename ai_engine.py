@@ -9,32 +9,54 @@ class AIEngine:
 
     def __init__(self):
         self.model = "openai/gpt-oss-20b"
+        self.vision_model = "qwen/qwen3.6-27b"
         self.client = None
+
         self._init_client()
 
+    # ======================================================
+    # GROQ CLIENT
+    # ======================================================
+
     def _init_client(self):
+
         api_key = None
 
         try:
             if "GROQ_API_KEY" in st.secrets:
                 api_key = st.secrets["GROQ_API_KEY"]
+
             elif "GROQ_API_KEY" in os.environ:
                 api_key = os.environ["GROQ_API_KEY"]
+
         except Exception:
             pass
 
-        if api_key:
-            clean_key = str(api_key).strip().strip('"').strip("'")
+        if not api_key:
+            self.client = None
+            return
 
-            try:
-                self.client = Groq(api_key=clean_key)
-            except Exception:
-                self.client = None
+        clean_key = str(api_key).strip()
+        clean_key = clean_key.strip('"')
+        clean_key = clean_key.strip("'")
+
+        try:
+            self.client = Groq(
+                api_key=clean_key
+            )
+
+        except Exception:
+            self.client = None
+
+    # ======================================================
+    # SET MODEL
+    # ======================================================
 
     def set_model(self, model_name: str):
+
         valid_models = [
             "openai/gpt-oss-20b",
-            "openai/gpt-oss-120b"
+            "openai/gpt-oss-120b",
         ]
 
         if model_name in valid_models:
@@ -42,318 +64,454 @@ class AIEngine:
         else:
             self.model = "openai/gpt-oss-20b"
 
-    def stream_chat(
-        self,
-        user_prompt: str,
-        history=None,
-        context: str = "",
-        web_search: str = "",
-        deep_thinking: bool = False
-    ):
+    # ======================================================
+    # CHECK CLIENT
+    # ======================================================
+
+    def _check_client(self):
+
         if self.client is None:
             self._init_client()
 
         if self.client is None:
+            return False
+
+        return True
+
+    # ======================================================
+    # STREAM CHAT
+    # ======================================================
+
+    def stream_chat(
+        self,
+        user_prompt,
+        history=None,
+        context="",
+        web_search="",
+        deep_thinking=False,
+    ):
+
+        if not self._check_client():
             yield "❌ GROQ_API_KEY topilmadi."
             return
 
         system_prompt = """
-Siz EduMindAI Enterprise v3.5
-sun'iy intellekt assistentisiz.
+Sen EduMindAI nomli zamonaviy AI yordamchisan.
 
-Foydalanuvchiga aniq, foydali
-va tushunarli javob bering.
+Foydalanuvchiga aniq, foydali va tushunarli javob ber.
 
 Foydalanuvchi qaysi tilda yozsa,
-shu tilda javob bering.
+iloji boricha o‘sha tilda javob ber.
 
-Kod so'ralsa, ishlaydigan kod yozing.
+Agar foydalanuvchi kod so‘rasa,
+kodni Markdown code block ichida ber.
+
+Keraksiz uzun javoblardan qoch.
 """
 
-        messages = [
-            {
-                "role": "system",
-                "content": system_prompt
-            }
-        ]
-
-        if history:
-            for message in history:
-                if message.get("role") in ["user", "assistant"]:
-                    content = message.get("content", "")
-
-                    if content:
-                        messages.append({
-                            "role": message["role"],
-                            "content": str(content)
-                        })
-
-        full_prompt = user_prompt
+        if deep_thinking:
+            system_prompt += """
+Murakkab savollarda javobni berishdan oldin
+muammoni yaxshilab tahlil qil.
+Lekin foydalanuvchiga ichki reasoning yoki
+yashirin fikrlash jarayonini ko‘rsatma.
+"""
 
         if context:
-            full_prompt += (
-                "\n\nQo'shimcha ma'lumot:\n"
+            system_prompt += (
+                "\n\nQo‘shimcha kontekst:\n"
                 + str(context)
             )
 
         if web_search:
-            full_prompt += (
-                "\n\nInternet natijalari:\n"
+            system_prompt += (
+                "\n\nInternet qidiruv natijalari:\n"
                 + str(web_search)
             )
 
-        if deep_thinking:
-            full_prompt += (
-                "\n\nJavobni chuqur tahlil qilib,"
-                " bosqichma-bosqich tekshirib bering."
-            )
+        messages = [
+            {
+                "role": "system",
+                "content": system_prompt,
+            }
+        ]
 
-        messages.append({
-            "role": "user",
-            "content": full_prompt
-        })
+        # ==================================================
+        # HISTORY
+        # ==================================================
 
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                stream=True
-            )
+        if history:
 
-            for chunk in response:
-                if not chunk.choices:
+            for message in history:
+
+                role = message.get("role")
+                content = message.get("content")
+
+                if role not in [
+                    "user",
+                    "assistant",
+                ]:
                     continue
 
-                content = chunk.choices[0].delta.content
+                # Faqat string yuboramiz
+                if isinstance(content, str):
 
-                if content:
-                    yield content
+                    messages.append(
+                        {
+                            "role": role,
+                            "content": content,
+                        }
+                    )
+
+        # ==================================================
+        # USER MESSAGE
+        # ==================================================
+
+        messages.append(
+            {
+                "role": "user",
+                "content": str(user_prompt),
+            }
+        )
+
+        try:
+
+            completion = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True,
+                temperature=0.7,
+            )
+
+            for chunk in completion:
+
+                try:
+
+                    content = (
+                        chunk.choices[0]
+                        .delta
+                        .content
+                    )
+
+                    if content:
+                        yield content
+
+                except Exception:
+                    continue
 
         except Exception as e:
-            yield "❌ Groq xatosi: " + str(e)
+
+            yield f"❌ Groq xatosi: {e}"
+
+    # ======================================================
+    # NORMAL CHAT
+    # ======================================================
 
     def chat(
         self,
-        user_prompt: str,
+        user_prompt,
         history=None,
-        context: str = "",
-        web_search: str = "",
-        deep_thinking: bool = False
+        context="",
+        web_search="",
+        deep_thinking=False,
     ):
-        answer = ""
+
+        result = ""
 
         for chunk in self.stream_chat(
             user_prompt=user_prompt,
             history=history,
             context=context,
             web_search=web_search,
-            deep_thinking=deep_thinking
+            deep_thinking=deep_thinking,
         ):
-            answer += str(chunk)
 
-        return answer
+            result += str(chunk)
 
-    def generate_image(
-        self,
-        prompt: str,
-        style: str = "Realistic",
-        aspect_ratio: str = "1:1"
-    ):
-        api_url = None
-        api_key = None
+        return result
 
-        try:
-            if "IMAGE_API_URL" in st.secrets:
-                api_url = st.secrets["IMAGE_API_URL"]
-
-            if "IMAGE_API_KEY" in st.secrets:
-                api_key = st.secrets["IMAGE_API_KEY"]
-
-        except Exception:
-            pass
-
-        if not api_url:
-            api_url = os.environ.get("IMAGE_API_URL")
-
-        if not api_key:
-            api_key = os.environ.get("IMAGE_API_KEY")
-
-        if not api_url:
-            return (
-                "❌ IMAGE_API_URL sozlanmagan.\n\n"
-                "Rasm generator API manzilini ulash kerak."
-            )
-
-        final_prompt = (
-            f"{prompt}\n\n"
-            f"Style: {style}\n"
-            f"Aspect ratio: {aspect_ratio}\n"
-            "High quality, detailed, professional "
-            "AI generated image."
-        )
-
-        headers = {
-            "Content-Type": "application/json"
-        }
-
-        if api_key:
-            headers["Authorization"] = "Bearer " + str(api_key)
-
-        payload = {
-            "prompt": final_prompt,
-            "style": style,
-            "aspect_ratio": aspect_ratio
-        }
-
-        try:
-            response = requests.post(
-                api_url,
-                headers=headers,
-                json=payload,
-                timeout=180
-            )
-
-            if response.status_code != 200:
-                return (
-                    "❌ Image API xatosi: "
-                    f"{response.status_code}\n\n"
-                    + response.text[:1000]
-                )
-
-            content_type = (
-                response.headers
-                .get("content-type", "")
-                .lower()
-            )
-
-            if content_type.startswith("image/"):
-                return response.content
-
-            try:
-                data = response.json()
-            except Exception:
-                return "❌ Image API noto'g'ri javob qaytardi."
-
-            image_base64 = None
-
-            if isinstance(data, dict):
-                image_base64 = data.get("image")
-
-                if not image_base64:
-                    image_base64 = data.get("image_base64")
-
-                if not image_base64:
-                    image_base64 = data.get("b64_json")
-
-            if image_base64:
-                try:
-                    if "," in image_base64:
-                        image_base64 = image_base64.split(",", 1)[1]
-
-                    return base64.b64decode(image_base64)
-
-                except Exception as e:
-                    return (
-                        "❌ Base64 rasmni o'qishda xato: "
-                        + str(e)
-                    )
-
-            image_url = None
-
-            if isinstance(data, dict):
-                image_url = data.get("url")
-
-                if not image_url:
-                    image_url = data.get("image_url")
-
-                if not image_url:
-                    image_url = data.get("output")
-
-            if image_url:
-                try:
-                    image_response = requests.get(
-                        image_url,
-                        timeout=120
-                    )
-
-                    if image_response.status_code == 200:
-                        return image_response.content
-
-                except Exception as e:
-                    return (
-                        "❌ Rasm URL'dan yuklanmadi: "
-                        + str(e)
-                    )
-
-            return "❌ Image API javobida rasm topilmadi."
-
-        except requests.exceptions.Timeout:
-            return (
-                "❌ Rasm yaratish vaqti tugadi. "
-                "Qayta urinib ko'ring."
-            )
-
-        except requests.exceptions.ConnectionError:
-            return (
-                "❌ Image API bilan bog'lanib bo'lmadi."
-            )
-
-        except Exception as e:
-            return "❌ Rasm yaratishda xato: " + str(e)
+    # ======================================================
+    # VISION / IMAGE CHAT
+    # ======================================================
 
     def vision_chat(
         self,
         image,
-        user_prompt: str
+        user_prompt,
     ):
-        if self.client is None:
-            self._init_client()
-
-        if self.client is None:
-            return "❌ GROQ_API_KEY topilmadi."
 
         try:
-            if hasattr(image, "read"):
-                image_bytes = image.read()
-            else:
-                image_bytes = image
 
-            encoded = base64.b64encode(
+            if not self._check_client():
+                return "❌ GROQ_API_KEY topilmadi."
+
+            # ----------------------------------------------
+            # IMAGE BYTES
+            # ----------------------------------------------
+
+            if hasattr(image, "seek"):
+                image.seek(0)
+
+            image_bytes = image.read()
+
+            if not image_bytes:
+                return "❌ Rasm ma'lumotlari topilmadi."
+
+            # ----------------------------------------------
+            # BASE64
+            # ----------------------------------------------
+
+            encoded_image = base64.b64encode(
                 image_bytes
             ).decode("utf-8")
 
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": user_prompt
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url":
-                                "data:image/png;base64,"
-                                + encoded
-                            }
-                        }
-                    ]
-                }
-            ]
+            # ----------------------------------------------
+            # IMAGE MIME TYPE
+            # ----------------------------------------------
 
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages
+            mime_type = "image/jpeg"
+
+            image_type = getattr(
+                image,
+                "type",
+                None,
             )
 
-            return response.choices[0].message.content
+            if image_type:
+
+                if image_type in [
+                    "image/png",
+                    "image/jpeg",
+                    "image/webp",
+                ]:
+                    mime_type = image_type
+
+            # ----------------------------------------------
+            # VISION REQUEST
+            # ----------------------------------------------
+
+            completion = self.client.chat.completions.create(
+
+                model=self.vision_model,
+
+                messages=[
+                    {
+                        "role": "user",
+
+                        "content": [
+
+                            {
+                                "type": "text",
+                                "text": str(user_prompt),
+                            },
+
+                            {
+                                "type": "image_url",
+
+                                "image_url": {
+                                    "url": (
+                                        f"data:{mime_type};base64,"
+                                        f"{encoded_image}"
+                                    )
+                                },
+                            },
+
+                        ],
+                    }
+                ],
+
+                temperature=0.7,
+
+                max_completion_tokens=1024,
+
+            )
+
+            # ----------------------------------------------
+            # RESULT
+            # ----------------------------------------------
+
+            result = (
+                completion
+                .choices[0]
+                .message
+                .content
+            )
+
+            if result:
+                return result
+
+            return "❌ AI rasmga javob qaytarmadi."
 
         except Exception as e:
+
             return (
                 "❌ Rasmni tahlil qilishda xato: "
                 + str(e)
             )
 
+    # ======================================================
+    # IMAGE GENERATION
+    # ======================================================
+
+    def generate_image(
+        self,
+        prompt,
+        style="Realistic",
+        aspect_ratio="1:1",
+    ):
+
+        try:
+
+            api_url = None
+            api_key = None
+
+            # ----------------------------------------------
+            # LOAD IMAGE API SETTINGS
+            # ----------------------------------------------
+
+            try:
+
+                if "IMAGE_API_URL" in st.secrets:
+                    api_url = st.secrets[
+                        "IMAGE_API_URL"
+                    ]
+
+                if "IMAGE_API_KEY" in st.secrets:
+                    api_key = st.secrets[
+                        "IMAGE_API_KEY"
+                    ]
+
+            except Exception:
+                pass
+
+            if not api_url:
+                api_url = os.environ.get(
+                    "IMAGE_API_URL"
+                )
+
+            if not api_key:
+                api_key = os.environ.get(
+                    "IMAGE_API_KEY"
+                )
+
+            if not api_url:
+
+                return None
+
+            headers = {}
+
+            if api_key:
+
+                headers["Authorization"] = (
+                    f"Bearer {api_key}"
+                )
+
+            headers["Content-Type"] = (
+                "application/json"
+            )
+
+            payload = {
+
+                "prompt": str(prompt),
+
+                "style": str(style),
+
+                "aspect_ratio": str(
+                    aspect_ratio
+                ),
+
+            }
+
+            response = requests.post(
+
+                api_url,
+
+                headers=headers,
+
+                json=payload,
+
+                timeout=120,
+
+            )
+
+            response.raise_for_status()
+
+            # ----------------------------------------------
+            # DIRECT IMAGE RESPONSE
+            # ----------------------------------------------
+
+            content_type = response.headers.get(
+                "content-type",
+                "",
+            )
+
+            if content_type.startswith(
+                "image/"
+            ):
+
+                return response.content
+
+            # ----------------------------------------------
+            # JSON RESPONSE
+            # ----------------------------------------------
+
+            data = response.json()
+
+            # base64 image
+            for key in [
+                "image",
+                "image_base64",
+                "b64_json",
+            ]:
+
+                if key in data:
+
+                    value = data[key]
+
+                    if isinstance(
+                        value,
+                        str,
+                    ):
+
+                        return base64.b64decode(
+                            value
+                        )
+
+            # image URL
+            for key in [
+                "url",
+                "image_url",
+                "output",
+            ]:
+
+                if key in data:
+
+                    value = data[key]
+
+                    if isinstance(
+                        value,
+                        str,
+                    ):
+
+                        return value
+
+            return None
+
+        except requests.exceptions.Timeout:
+
+            return None
+
+        except requests.exceptions.RequestException:
+
+            return None
+
+        except Exception:
+
+            return None
+
+
+# ==========================================================
+# GLOBAL AI INSTANCE
+# ==========================================================
 
 ai = AIEngine()

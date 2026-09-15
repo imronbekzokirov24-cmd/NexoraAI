@@ -15,8 +15,8 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
-        self.vision_model = "llama-3.1-8b-instant"
-        self.model = "llama-3.1-8b-instant"
+        self.vision_model = "gemma2-9b-it"
+        self.model = "gemma2-9b-it"
         self.client = None
         self._init_client()
 
@@ -52,13 +52,14 @@ class AIEngine:
 
     def set_model(self, model_name: str):
         valid_models = [
-            "llama-3.1-8b-instant",
+            "gemma2-9b-it",
+            "llama3-8b-8192",
         ]
 
         if model_name in valid_models:
             self.model = model_name
         else:
-            self.model = "llama-3.1-8b-instant"
+            self.model = "gemma2-9b-it"
 
     # ======================================================
     # CHECK CLIENT

@@ -9,7 +9,7 @@ class AIEngine:
 
     def __init__(self):
         self.model = "openai/gpt-oss-20b"
-        self.vision_model = "qwen/qwen3.6-27b"
+        self.vision_model = "llama-3.2-11b-vision-preview"
         self.client = None
 
         self._init_client()
@@ -153,7 +153,6 @@ yashirin fikrlash jarayonini ko‘rsatma.
                 ]:
                     continue
 
-                # Faqat string yuboramiz
                 if isinstance(content, str):
 
                     messages.append(
@@ -245,10 +244,6 @@ yashirin fikrlash jarayonini ko‘rsatma.
             if not self._check_client():
                 return "❌ GROQ_API_KEY topilmadi."
 
-            # ----------------------------------------------
-            # IMAGE BYTES
-            # ----------------------------------------------
-
             if hasattr(image, "seek"):
                 image.seek(0)
 
@@ -257,17 +252,9 @@ yashirin fikrlash jarayonini ko‘rsatma.
             if not image_bytes:
                 return "❌ Rasm ma'lumotlari topilmadi."
 
-            # ----------------------------------------------
-            # BASE64
-            # ----------------------------------------------
-
             encoded_image = base64.b64encode(
                 image_bytes
             ).decode("utf-8")
-
-            # ----------------------------------------------
-            # IMAGE MIME TYPE
-            # ----------------------------------------------
 
             mime_type = "image/jpeg"
 
@@ -285,10 +272,6 @@ yashirin fikrlash jarayonini ko‘rsatma.
                     "image/webp",
                 ]:
                     mime_type = image_type
-
-            # ----------------------------------------------
-            # VISION REQUEST
-            # ----------------------------------------------
 
             completion = self.client.chat.completions.create(
 
@@ -326,10 +309,6 @@ yashirin fikrlash jarayonini ko‘rsatma.
 
             )
 
-            # ----------------------------------------------
-            # RESULT
-            # ----------------------------------------------
-
             result = (
                 completion
                 .choices[0]
@@ -364,10 +343,6 @@ yashirin fikrlash jarayonini ko‘rsatma.
 
             api_url = None
             api_key = None
-
-            # ----------------------------------------------
-            # LOAD IMAGE API SETTINGS
-            # ----------------------------------------------
 
             try:
 
@@ -436,10 +411,6 @@ yashirin fikrlash jarayonini ko‘rsatma.
 
             response.raise_for_status()
 
-            # ----------------------------------------------
-            # DIRECT IMAGE RESPONSE
-            # ----------------------------------------------
-
             content_type = response.headers.get(
                 "content-type",
                 "",
@@ -451,13 +422,8 @@ yashirin fikrlash jarayonini ko‘rsatma.
 
                 return response.content
 
-            # ----------------------------------------------
-            # JSON RESPONSE
-            # ----------------------------------------------
-
             data = response.json()
 
-            # base64 image
             for key in [
                 "image",
                 "image_base64",
@@ -477,7 +443,6 @@ yashirin fikrlash jarayonini ko‘rsatma.
                             value
                         )
 
-            # image URL
             for key in [
                 "url",
                 "image_url",

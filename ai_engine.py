@@ -15,9 +15,9 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
-        # Faol model nomlari bilan yangilandi
-        self.vision_model = "llama-3.1-8b-instant" 
-        self.model = "llama-3.3-70b-versatile"
+        # 100% ishlaydigan model
+        self.vision_model = "llama-3.1-8b-instant"
+        self.model = "llama-3.1-8b-instant"
         self.client = None
         self._init_client()
 
@@ -53,15 +53,13 @@ class AIEngine:
 
     def set_model(self, model_name: str):
         valid_models = [
-            "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
-            "mixtral-8x7b-32768",
         ]
 
         if model_name in valid_models:
             self.model = model_name
         else:
-            self.model = "llama-3.3-70b-versatile"
+            self.model = "llama-3.1-8b-instant"
 
     # ======================================================
     # CHECK CLIENT
@@ -202,7 +200,6 @@ Lekin foydalanuvchiga ichki reasoning yoki yashirin fikrlash jarayonini ko‘rsa
             if not self._check_client():
                 return "❌ GROQ_API_KEY topilmadi."
 
-            # Agar vision modeli vaqtincha ishlamasa, oddiy matnli chat orqali javob berishga o'tish
             return self.chat(
                 user_prompt=f"[Foydalanuvchi rasm yukladi va so'radi: {user_prompt}]"
             )

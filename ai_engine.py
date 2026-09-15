@@ -8,8 +8,7 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
-        self.vision_model = "meta-llama/llama-3.2-90b-vision-instruct"
-        self.vision_model = "llama-3.2-11b-vision-preview"
+        self.vision_model = "llama-3.2-90b-vision-preview"
         self.client = None
 
         self._init_client()

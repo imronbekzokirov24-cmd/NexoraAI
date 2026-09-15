@@ -8,7 +8,7 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
-        self.model = "openai/gpt-oss-20b"
+        self.vision_model = "meta-llama/llama-3.2-90b-vision-instruct"
         self.vision_model = "llama-3.2-11b-vision-preview"
         self.client = None
 

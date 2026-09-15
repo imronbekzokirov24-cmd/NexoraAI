@@ -12,7 +12,13 @@ import streamlit as st
 from groq import Groq
 
 
+class AIEngine:
 
+    def __init__(self):
+        self.vision_model = "llama-3.1-8b-instant"
+        self.model = "llama-3.1-8b-instant"
+        self.client = None
+        self._init_client()
 
     # ======================================================
     # GROQ CLIENT

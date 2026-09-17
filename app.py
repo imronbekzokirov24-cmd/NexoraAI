@@ -1,16 +1,18 @@
 """
 ============================================================
-EduMindAI Enterprise v3.5 (Free Edition)
+EduMindAI Enterprise v3.5
 Main Application
 ============================================================
 """
 
 import uuid
 import streamlit as st
+
 from streamlit_mic_recorder import mic_recorder
 
 from config import *
 from database import db
+from auth import auth
 from ai_engine import ai
 from search import search
 from speech import speech
@@ -33,6 +35,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
+# ==========================================================
+# LOAD STYLE
+# ==========================================================
+
 style.load()
 
 
@@ -42,8 +49,9 @@ style.load()
 
 defaults = {
     "logged_in": False,
+    "user_id": None,
+    "username": "",
     "user_email": "",
-    "user_id": str(uuid.uuid4()),
     "plan": "Free",
     "messages": [],
     "active_image": None,
@@ -55,19 +63,74 @@ defaults = {
 }
 
 for key, value in defaults.items():
+
     if key not in st.session_state:
+
         st.session_state[key] = value
+
+
+# ==========================================================
+# AUTHENTICATION
+# ==========================================================
+
+# Agar login qilinmagan bo‘lsa,
+# Login/Register sahifasini ko‘rsatamiz.
+
+if not st.session_state.logged_in:
+
+    auth.show_auth_page()
+
+    st.stop()
+
+
+# ==========================================================
+# LOAD USER CHAT HISTORY
+# ==========================================================
+
+if (
+    st.session_state.logged_in
+    and not st.session_state.get(
+        "history_loaded",
+        False
+    )
+):
+
+    try:
+
+        saved_chats = db.load_chat(
+            st.session_state.user_id
+        )
+
+        st.session_state.messages = []
+
+        for message in saved_chats:
+
+            st.session_state.messages.append(
+                {
+                    "role": message["role"],
+                    "content": message["content"],
+                    "image": None,
+                }
+            )
+
+        st.session_state.history_loaded = True
+
+    except Exception:
+
+        st.session_state.history_loaded = True
 
 
 # ==========================================================
 # TITLE
 # ==========================================================
 
-st.title("🧠 EduMindAI Enterprise v3.5")
+st.title(
+    "🧠 EduMindAI Enterprise v3.5"
+)
 
 st.caption(
-    "AI Chat • Multilingual • Code Interpreter • Vision • "
-    "PDF/Excel • Web Scraper • Deep Reasoning"
+    "AI Chat • Multilingual • Code Interpreter • "
+    "Vision • PDF/Excel • Web Scraper • Deep Reasoning"
 )
 
 st.divider()
@@ -79,78 +142,125 @@ st.divider()
 
 with st.sidebar:
 
-    st.title("⚙️ EduMindAI Control Center")
+    st.title(
+        "⚙️ EduMindAI Control Center"
+    )
+
     st.markdown("---")
 
+
+    # ======================================================
     # ACCOUNT
+    # ======================================================
+
     st.subheader("👤 Account")
 
-    if not st.session_state.logged_in:
+    st.write(
+        f"**Username:** "
+        f"{st.session_state.username}"
+    )
 
-        st.write("Tizimga kirish uchun email va parolingizni kiriting:")
+    if st.session_state.user_email:
 
-        email_input = st.text_input(
-            "Email:",
-            placeholder="example@gmail.com",
+        st.write(
+            f"**Email:** "
+            f"{st.session_state.user_email}"
         )
 
-        password_input = st.text_input(
-            "Parol:",
-            type="password",
-            placeholder="******",
-        )
+    st.write(
+        f"**Tarif:** "
+        f"{st.session_state.plan}"
+    )
 
-        if st.button("🔑 Sign In", use_container_width=True):
 
-            if email_input and "@" in email_input:
+    # ======================================================
+    # LOGOUT
+    # ======================================================
 
-                st.session_state.logged_in = True
-                st.session_state.user_email = email_input
+    if st.button(
+        "🚪 Sign Out",
+        use_container_width=True
+    ):
 
-                st.success("Muvaffaqiyatli kirdingiz!")
-                st.rerun()
+        auth.logout()
 
-            else:
-                st.error("Iltimos, to'g'ri email manzilini kiriting!")
-
-    else:
-
-        st.write(f"**Email:** {st.session_state.user_email}")
-        st.write(f"**Tarif:** {st.session_state.plan}")
-
-        if st.button("🚪 Sign Out", use_container_width=True):
-
-            st.session_state.logged_in = False
-            st.session_state.user_email = ""
-
-            st.rerun()
 
     st.markdown("---")
 
-    # USAGE
-    st.subheader("📊 Usage Dashboard")
+
+    # ======================================================
+    # USAGE DASHBOARD
+    # ======================================================
+
+    st.subheader(
+        "📊 Usage Dashboard"
+    )
+
+    try:
+
+        stats = db.get_statistics(
+            st.session_state.user_id
+        )
+
+    except Exception:
+
+        stats = {
+            "questions": 0,
+            "pdfs": 0,
+            "images": 0,
+        }
+
 
     col1, col2 = st.columns(2)
 
     with col1:
+
         st.metric(
             "Xabarlar",
-            len(st.session_state.messages),
+            len(st.session_state.messages)
         )
 
     with col2:
+
         st.metric(
             "So'rovlar",
-            st.session_state.total_prompts,
+            stats.get(
+                "questions",
+                st.session_state.total_prompts
+            )
         )
+
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+
+        st.metric(
+            "PDF",
+            stats.get("pdfs", 0)
+        )
+
+    with col4:
+
+        st.metric(
+            "Rasm",
+            stats.get("images", 0)
+        )
+
 
     st.markdown("---")
 
+
+    # ======================================================
     # LANGUAGE
-    st.subheader("🌐 Language Settings")
+    # ======================================================
+
+    st.subheader(
+        "🌐 Language Settings"
+    )
 
     app_language = st.selectbox(
-        "Muloqot tili (Language):",
+        "Muloqot tili:",
         [
             "O'zbekcha",
             "English",
@@ -159,10 +269,17 @@ with st.sidebar:
         index=0,
     )
 
+
     st.markdown("---")
 
+
+    # ======================================================
     # AI SETTINGS
-    st.subheader("🤖 AI Settings")
+    # ======================================================
+
+    st.subheader(
+        "🤖 AI Settings"
+    )
 
     ai_model = st.selectbox(
         "AI Model",
@@ -175,10 +292,17 @@ with st.sidebar:
 
     ai.set_model(ai_model)
 
+
     st.markdown("---")
 
+
+    # ======================================================
     # FEATURES
-    st.subheader("⚡ Features")
+    # ======================================================
+
+    st.subheader(
+        "⚡ Features"
+    )
 
     enable_web = st.toggle(
         "🌐 Internet Search",
@@ -195,6 +319,7 @@ with st.sidebar:
         value=False,
     )
 
+
     voice_gender = "Ayol"
 
     if enable_tts:
@@ -208,6 +333,7 @@ with st.sidebar:
             horizontal=True,
         )
 
+
     enable_img_gen = st.toggle(
         "🎨 Image Generation",
         value=False,
@@ -218,16 +344,24 @@ with st.sidebar:
         value=False,
     )
 
+
+    # ======================================================
+    # IMAGE SETTINGS
+    # ======================================================
+
     img_style = "Realistic"
     img_aspect = "1:1"
 
     if enable_img_gen:
 
         st.markdown("---")
-        st.subheader("🎨 Image Settings")
+
+        st.subheader(
+            "🎨 Image Settings"
+        )
 
         img_style = st.selectbox(
-            "Uslub (Style):",
+            "Uslub:",
             [
                 "Realistic",
                 "Anime",
@@ -239,7 +373,7 @@ with st.sidebar:
         )
 
         img_aspect = st.selectbox(
-            "O'lcham (Aspect Ratio):",
+            "O'lcham:",
             [
                 "1:1",
                 "16:9",
@@ -247,55 +381,89 @@ with st.sidebar:
             ],
         )
 
+
     st.markdown("---")
 
+
+    # ======================================================
     # PROMPT TEMPLATES
+    # ======================================================
+
     try:
 
         from prompt_templates import templates
 
-        template_prefix = templates.render_templates()
+        template_prefix = (
+            templates.render_templates()
+        )
 
         if template_prefix:
 
-            st.session_state.prefilled_prompt = template_prefix
+            st.session_state.prefilled_prompt = (
+                template_prefix
+            )
 
             st.success(
-                "Shablon tanlandi! Matningizni kiriting."
+                "Shablon tanlandi!"
             )
 
     except Exception:
+
         pass
+
 
     st.markdown("---")
 
+
+    # ======================================================
     # URL SCRAPER
-    st.subheader("🔗 Web Page / Link Analyzer")
+    # ======================================================
+
+    st.subheader(
+        "🔗 Web Page / Link Analyzer"
+    )
 
     web_url = st.text_input(
-        "Veb-sayt havolasi (https://...)"
+        "Veb-sayt havolasi:"
     )
 
     if web_url:
 
-        with st.spinner("🔗 Sayt tahlil qilinmoqda..."):
+        with st.spinner(
+            "🔗 Sayt tahlil qilinmoqda..."
+        ):
 
             try:
 
-                st.session_state.url_text = scraper.scrape_url(
-                    web_url
+                st.session_state.url_text = (
+                    scraper.scrape_url(
+                        web_url
+                    )
                 )
 
                 if st.session_state.url_text:
-                    st.success("Veb-sayt matni yuklandi!")
+
+                    st.success(
+                        "Veb-sayt matni yuklandi!"
+                    )
 
             except Exception as e:
-                st.error(f"URL xatosi: {e}")
+
+                st.error(
+                    f"URL xatosi: {e}"
+                )
+
 
     st.markdown("---")
 
+
+    # ======================================================
     # VOICE INPUT
-    st.subheader("🎙️ Voice Input")
+    # ======================================================
+
+    st.subheader(
+        "🎙️ Voice Input"
+    )
 
     try:
 
@@ -308,14 +476,26 @@ with st.sidebar:
     except Exception as e:
 
         audio_record = None
-        st.warning(f"Voice input ishlamadi: {e}")
+
+        st.warning(
+            f"Voice input ishlamadi: {e}"
+        )
+
 
     st.markdown("---")
 
+
+    # ======================================================
     # EXPORT CHAT
-    st.subheader("📥 Export Chat")
+    # ======================================================
+
+    st.subheader(
+        "📥 Export Chat"
+    )
 
     if st.session_state.messages:
+
+        # Word
 
         try:
 
@@ -335,7 +515,13 @@ with st.sidebar:
             )
 
         except Exception as e:
-            st.error(f"Word export xatosi: {e}")
+
+            st.error(
+                f"Word export xatosi: {e}"
+            )
+
+
+        # PDF
 
         try:
 
@@ -352,16 +538,26 @@ with st.sidebar:
             )
 
         except Exception:
+
             pass
 
     else:
 
-        st.caption("Chatda xabarlar yo'q.")
+        st.caption(
+            "Chatda xabarlar yo'q."
+        )
+
 
     st.markdown("---")
 
+
+    # ======================================================
     # DOCUMENT UPLOAD
-    st.subheader("📄 Upload Document")
+    # ======================================================
+
+    st.subheader(
+        "📄 Upload Document"
+    )
 
     uploaded_files = st.file_uploader(
         "PDF / TXT fayllar",
@@ -376,19 +572,43 @@ with st.sidebar:
 
         try:
 
-            st.session_state.document_text = pdf_reader.read_multiple(
-                uploaded_files
+            st.session_state.document_text = (
+                pdf_reader.read_multiple(
+                    uploaded_files
+                )
             )
 
-            st.success("Hujjatlar yuklandi.")
+            st.success(
+                "Hujjatlar yuklandi."
+            )
+
+            try:
+
+                db.increase_pdfs(
+                    st.session_state.user_id
+                )
+
+            except Exception:
+
+                pass
 
         except Exception as e:
-            st.error(f"Hujjat xatosi: {e}")
+
+            st.error(
+                f"Hujjat xatosi: {e}"
+            )
+
 
     st.markdown("---")
 
+
+    # ======================================================
     # EXCEL / CSV
-    st.subheader("📊 Upload Data (Excel/CSV)")
+    # ======================================================
+
+    st.subheader(
+        "📊 Upload Data (Excel/CSV)"
+    )
 
     data_file = st.file_uploader(
         "Excel / CSV fayl",
@@ -403,21 +623,35 @@ with st.sidebar:
 
         try:
 
-            df = analyzer.read_file(data_file)
+            df = analyzer.read_file(
+                data_file
+            )
 
             if df is not None:
 
                 st.session_state.data_summary = (
-                    analyzer.analyze_and_display(df)
+                    analyzer.analyze_and_display(
+                        df
+                    )
                 )
 
         except Exception as e:
-            st.error(f"Data xatosi: {e}")
+
+            st.error(
+                f"Data xatosi: {e}"
+            )
+
 
     st.markdown("---")
 
+
+    # ======================================================
     # IMAGE UPLOAD
-    st.subheader("🖼️ Upload Image")
+    # ======================================================
+
+    st.subheader(
+        "🖼️ Upload Image"
+    )
 
     uploaded_image_file = st.file_uploader(
         "Rasm yuklash",
@@ -431,7 +665,9 @@ with st.sidebar:
 
     if uploaded_image_file is not None:
 
-        st.session_state.active_image = uploaded_image_file
+        st.session_state.active_image = (
+            uploaded_image_file
+        )
 
         st.image(
             uploaded_image_file,
@@ -439,20 +675,41 @@ with st.sidebar:
             use_container_width=True,
         )
 
+
     st.markdown("---")
 
+
+    # ======================================================
     # CLEAR CHAT
+    # ======================================================
+
     if st.button(
         "🗑 Clear Chat & History",
         use_container_width=True,
     ):
 
+        try:
+
+            db.clear_chat(
+                st.session_state.user_id
+            )
+
+        except Exception:
+
+            pass
+
         st.session_state.messages = []
+
         st.session_state.active_image = None
+
         st.session_state.document_text = ""
+
         st.session_state.data_summary = ""
+
         st.session_state.url_text = ""
+
         st.session_state.prefilled_prompt = ""
+
         st.session_state.total_prompts = 0
 
         st.rerun()
@@ -464,7 +721,9 @@ with st.sidebar:
 
 for message in st.session_state.messages:
 
-    with st.chat_message(message["role"]):
+    with st.chat_message(
+        message["role"]
+    ):
 
         if message.get("image") is not None:
 
@@ -474,7 +733,10 @@ for message in st.session_state.messages:
             )
 
         st.markdown(
-            message.get("content", "")
+            message.get(
+                "content",
+                ""
+            )
         )
 
 
@@ -486,11 +748,14 @@ text_prompt = st.chat_input(
     "EduMindAI bilan suhbatni boshlang..."
 )
 
+
 prompt = None
+
 
 if text_prompt:
 
     prompt = text_prompt
+
 
 elif audio_record and "bytes" in audio_record:
 
@@ -513,11 +778,21 @@ if prompt:
 
     st.session_state.total_prompts += 1
 
+
+    # ======================================================
+    # LANGUAGE
+    # ======================================================
+
     lang_instruction = (
         "\n\n"
         "[SYSTEM INSTRUCTION: "
         f"Javobni {app_language} tilda bering.]"
     )
+
+
+    # ======================================================
+    # TEMPLATE
+    # ======================================================
 
     if st.session_state.prefilled_prompt:
 
@@ -529,20 +804,68 @@ if prompt:
 
         st.session_state.prefilled_prompt = ""
 
+
     prompt_with_lang = (
         prompt
         + lang_instruction
     )
 
-    current_img = st.session_state.active_image
+
+    # ======================================================
+    # CURRENT IMAGE
+    # ======================================================
+
+    current_img = (
+        st.session_state.active_image
+    )
+
+
+    # ======================================================
+    # USER MESSAGE
+    # ======================================================
+
+    user_message = {
+        "role": "user",
+        "content": prompt,
+        "image": current_img,
+    }
 
     st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": prompt,
-            "image": current_img,
-        }
+        user_message
     )
+
+
+    # Save user message
+
+    try:
+
+        db.save_chat(
+            st.session_state.user_id,
+            "user",
+            prompt
+        )
+
+    except Exception:
+
+        pass
+
+
+    # Increase question count
+
+    try:
+
+        db.increase_questions(
+            st.session_state.user_id
+        )
+
+    except Exception:
+
+        pass
+
+
+    # ======================================================
+    # DISPLAY USER MESSAGE
+    # ======================================================
 
     with st.chat_message("user"):
 
@@ -555,56 +878,87 @@ if prompt:
 
         st.markdown(prompt)
 
+
+    # ======================================================
+    # ASSISTANT
+    # ======================================================
+
     with st.chat_message("assistant"):
 
         placeholder = st.empty()
+
         response = ""
 
+
+        # ==================================================
         # IMAGE GENERATION
+        # ==================================================
+
         if enable_img_gen:
 
             try:
 
-                generated_image = ai.generate_image(
-                    prompt=prompt,
-                    style=img_style,
-                    aspect_ratio=img_aspect,
+                generated_image = (
+                    ai.generate_image(
+                        prompt=prompt,
+                        style=img_style,
+                        aspect_ratio=img_aspect,
+                    )
                 )
 
                 if generated_image is not None:
 
-                    response = "🎨 Rasm yaratildi."
+                    response = (
+                        "🎨 Rasm yaratildi."
+                    )
 
-                    placeholder.markdown(response)
+                    placeholder.markdown(
+                        response
+                    )
 
                     try:
+
                         st.image(
                             generated_image,
                             use_container_width=True,
                         )
+
                     except Exception:
+
                         pass
 
                 else:
 
                     response = (
                         "🎨 Rasm yaratish uchun "
-                        "IMAGE_API_URL va IMAGE_API_KEY "
-                        "sozlamalarini tekshiring."
+                        "IMAGE_API_URL va "
+                        "IMAGE_API_KEY sozlamalarini "
+                        "tekshiring."
                     )
 
-                    placeholder.markdown(response)
+                    placeholder.markdown(
+                        response
+                    )
 
             except Exception as e:
 
-                response = f"❌ Image generation xatosi: {e}"
-                placeholder.error(response)
+                response = (
+                    f"❌ Image generation xatosi: {e}"
+                )
 
+                placeholder.error(
+                    response
+                )
+
+
+        # ==================================================
         # VISION
+        # ==================================================
+
         elif current_img is not None:
 
             with st.spinner(
-                "🖼️ AI rasmni ko'rib tahlil qilmoqda..."
+                "🖼️ AI rasmni tahlil qilmoqda..."
             ):
 
                 try:
@@ -616,16 +970,29 @@ if prompt:
 
                 except Exception as e:
 
-                    response = f"❌ Vision xatosi: {e}"
+                    response = (
+                        f"❌ Vision xatosi: {e}"
+                    )
 
-            placeholder.markdown(response)
+            placeholder.markdown(
+                response
+            )
 
             st.session_state.active_image = None
 
+
+        # ==================================================
         # TEXT CHAT
+        # ==================================================
+
         else:
 
             web_context = ""
+
+
+            # ==============================================
+            # WEB SEARCH
+            # ==============================================
 
             if enable_web:
 
@@ -635,8 +1002,10 @@ if prompt:
 
                     try:
 
-                        web_context = search.search_context(
-                            prompt
+                        web_context = (
+                            search.search_context(
+                                prompt
+                            )
                         )
 
                     except Exception as e:
@@ -645,9 +1014,19 @@ if prompt:
                             f"Web search xatosi: {e}"
                         )
 
+
+            # ==============================================
+            # FULL CONTEXT
+            # ==============================================
+
             full_context = (
                 st.session_state.document_text
             )
+
+
+            # ==============================================
+            # DATA SUMMARY
+            # ==============================================
 
             if st.session_state.data_summary:
 
@@ -657,6 +1036,11 @@ if prompt:
                     + st.session_state.data_summary
                 )
 
+
+            # ==============================================
+            # URL CONTENT
+            # ==============================================
+
             if st.session_state.url_text:
 
                 full_context += (
@@ -665,11 +1049,21 @@ if prompt:
                     + st.session_state.url_text
                 )
 
+
+            # ==============================================
+            # MEMORY
+            # ==============================================
+
             history = (
                 st.session_state.messages
                 if enable_memory
                 else None
             )
+
+
+            # ==============================================
+            # AI RESPONSE
+            # ==============================================
 
             with st.spinner(
                 "🤖 EduMindAI javob bermoqda..."
@@ -678,16 +1072,24 @@ if prompt:
                 try:
 
                     for chunk in ai.stream_chat(
+
                         user_prompt=prompt_with_lang,
+
                         history=history,
+
                         context=full_context,
+
                         web_search=web_context,
+
                         deep_thinking=enable_deep_think,
+
                     ):
 
                         if chunk is not None:
 
-                            response += str(chunk)
+                            response += str(
+                                chunk
+                            )
 
                             placeholder.markdown(
                                 response + "▌"
@@ -695,26 +1097,49 @@ if prompt:
 
                 except Exception as e:
 
-                    response = f"❌ AI xatosi: {e}"
+                    response = (
+                        f"❌ AI xatosi: {e}"
+                    )
 
-            placeholder.markdown(response)
 
+            placeholder.markdown(
+                response
+            )
+
+
+        # ==================================================
         # TEXT TO SPEECH
-        if enable_tts and response and not enable_img_gen:
+        # ==================================================
+
+        if (
+            enable_tts
+            and response
+            and not enable_img_gen
+        ):
 
             try:
 
-                audio = speech.quick(response)
+                audio = speech.quick(
+                    response
+                )
 
                 if audio:
-                    st.audio(audio)
+
+                    st.audio(
+                        audio
+                    )
 
             except Exception as e:
+
                 st.warning(
                     f"Voice response xatosi: {e}"
                 )
 
+
+    # ======================================================
     # SAVE ASSISTANT MESSAGE
+    # ======================================================
+
     st.session_state.messages.append(
         {
             "role": "assistant",
@@ -722,3 +1147,22 @@ if prompt:
             "image": None,
         }
     )
+
+
+    # ======================================================
+    # SAVE ASSISTANT RESPONSE TO DATABASE
+    # ======================================================
+
+    try:
+
+        if response:
+
+            db.save_chat(
+                st.session_state.user_id,
+                "assistant",
+                response
+            )
+
+    except Exception:
+
+        pass

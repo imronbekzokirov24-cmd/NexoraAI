@@ -12,6 +12,10 @@ from groq import Groq
 
 class AIEngine:
 
+    # ------------------------------------------------------
+    # TEXT MODELS
+    # ------------------------------------------------------
+
     DEFAULT_MODEL = "openai/gpt-oss-120b"
 
     VALID_MODELS = [
@@ -19,12 +23,20 @@ class AIEngine:
         "openai/gpt-oss-20b",
     ]
 
-    VISION_MODEL = "qwen/qwen3.6-27b"
+    # Groq vision modellari
+    VISION_MODELS = [
+        "qwen/qwen3.6-27b",
+        "qwen/qwen3.8-27b",
+    ]
 
     def __init__(self):
+
         self.model = self.DEFAULT_MODEL
         self.client = None
+        self.available_models = []
+
         self._init_client()
+        self._load_available_models()
 
     # ------------------------------------------------------
     # GROQ CLIENT
@@ -50,12 +62,66 @@ class AIEngine:
 
         api_key = str(api_key).strip()
 
+        # Agar key "..." ko ichiga olib qolgan bo'lsa
         api_key = api_key.strip('"').strip("'")
 
         try:
-            self.client = Groq(api_key=api_key)
+            self.client = Groq(
+                api_key=api_key
+            )
+
         except Exception:
             self.client = None
+
+    # ------------------------------------------------------
+    # LOAD AVAILABLE MODELS
+    # ------------------------------------------------------
+
+    def _load_available_models(self):
+
+        self.available_models = []
+
+        if self.client is None:
+            return
+
+        try:
+
+            models = self.client.models.list()
+
+            for model in models.data:
+
+                model_id = getattr(
+                    model,
+                    "id",
+                    None
+                )
+
+                if model_id:
+                    self.available_models.append(
+                        model_id
+                    )
+
+        except Exception:
+
+            self.available_models = []
+
+    # ------------------------------------------------------
+    # FIND VISION MODEL
+    # ------------------------------------------------------
+
+    def _get_vision_model(self):
+
+        # Avval API orqali ko'ringan modellardan qidiramiz
+        if self.available_models:
+
+            for model in self.VISION_MODELS:
+
+                if model in self.available_models:
+                    return model
+
+        # Model list ishlamasa, birinchi zamonaviy
+        # vision modelni sinab ko'ramiz
+        return self.VISION_MODELS[0]
 
     # ------------------------------------------------------
     # MODEL
@@ -64,8 +130,11 @@ class AIEngine:
     def set_model(self, model_name):
 
         if model_name in self.VALID_MODELS:
+
             self.model = model_name
+
         else:
+
             self.model = self.DEFAULT_MODEL
 
     # ------------------------------------------------------
@@ -112,6 +181,7 @@ quyidagicha javob ber:
 """
 
         if deep_thinking:
+
             prompt += """
 
 Murakkab savollarni chuqur tahlil qil.
@@ -121,12 +191,14 @@ Faqat yakuniy foydali javobni ber.
 """
 
         if context:
+
             prompt += (
                 "\n\nQo'shimcha kontekst:\n"
                 + str(context)
             )
 
         if web_search:
+
             prompt += (
                 "\n\nQidiruv natijalari:\n"
                 + str(web_search)
@@ -170,7 +242,10 @@ Faqat yakuniy foydali javobni ber.
             }
         ]
 
-        # Chat history
+        # --------------------------------------------------
+        # CHAT HISTORY
+        # --------------------------------------------------
+
         if history:
 
             for message in history:
@@ -178,9 +253,15 @@ Faqat yakuniy foydali javobni ber.
                 role = message.get("role")
                 content = message.get("content")
 
-                if role in ("user", "assistant"):
+                if role in (
+                    "user",
+                    "assistant"
+                ):
 
-                    if isinstance(content, str):
+                    if isinstance(
+                        content,
+                        str
+                    ):
 
                         messages.append(
                             {
@@ -189,7 +270,10 @@ Faqat yakuniy foydali javobni ber.
                             }
                         )
 
-        # Current user message
+        # --------------------------------------------------
+        # CURRENT USER MESSAGE
+        # --------------------------------------------------
+
         messages.append(
             {
                 "role": "user",
@@ -207,7 +291,10 @@ Faqat yakuniy foydali javobni ber.
                 "max_tokens": 4096,
             }
 
-            # Reasoning
+            # --------------------------------------------------
+            # REASONING
+            # --------------------------------------------------
+
             if deep_thinking:
 
                 request["reasoning_effort"] = "medium"
@@ -282,11 +369,16 @@ Faqat yakuniy foydali javobni ber.
 
         if not self._check_client():
 
-            return "❌ GROQ_API_KEY topilmadi."
+            return (
+                "❌ GROQ_API_KEY topilmadi."
+            )
 
         try:
 
-            # File boshiga qaytish
+            # ----------------------------------------------
+            # IMAGE POSITION
+            # ----------------------------------------------
+
             try:
                 image.seek(0)
             except Exception:
@@ -295,12 +387,19 @@ Faqat yakuniy foydali javobni ber.
             image_bytes = image.read()
 
             if not image_bytes:
-                return "❌ Rasmni o'qib bo'lmadi."
+
+                return (
+                    "❌ Rasmni o'qib bo'lmadi."
+                )
+
+            # ----------------------------------------------
+            # MIME TYPE
+            # ----------------------------------------------
 
             mime_type = getattr(
                 image,
                 "type",
-                "image/jpeg",
+                None,
             )
 
             if mime_type not in (
@@ -311,62 +410,103 @@ Faqat yakuniy foydali javobni ber.
 
                 mime_type = "image/jpeg"
 
-            encoded_image = base64.b64encode(
-                image_bytes
-            ).decode("utf-8")
+            # ----------------------------------------------
+            # BASE64
+            # ----------------------------------------------
+
+            encoded_image = (
+                base64
+                .b64encode(image_bytes)
+                .decode("utf-8")
+            )
 
             image_url = (
                 f"data:{mime_type};base64,"
                 f"{encoded_image}"
             )
 
+            # ----------------------------------------------
+            # PROMPT
+            # ----------------------------------------------
+
             text_prompt = (
                 user_prompt
                 if user_prompt
-                else "Bu rasmni batafsil tahlil qil."
+                else
+                "Bu rasmni batafsil tahlil qil."
             )
 
+            # ----------------------------------------------
+            # MESSAGES
+            # ----------------------------------------------
+
             messages = [
+
                 {
                     "role": "system",
                     "content": (
-                        "Sen EduMindAI vision yordamchisisan. "
+                        "Sen EduMindAI vision "
+                        "yordamchisisan. "
                         "Rasmni diqqat bilan tahlil qil. "
                         "Rasmdagi obyektlar, matnlar, "
-                        "diagrammalar va kodlarni tushuntir."
+                        "diagrammalar va kodlarni "
+                        "tushuntir. "
+                        "Asosan o'zbek tilida javob ber."
                     ),
                 },
+
                 {
                     "role": "user",
                     "content": [
+
                         {
                             "type": "text",
                             "text": text_prompt,
                         },
+
                         {
                             "type": "image_url",
                             "image_url": {
                                 "url": image_url,
                             },
                         },
+
                     ],
                 },
+
             ]
+
+            # ----------------------------------------------
+            # AVAILABLE VISION MODEL
+            # ----------------------------------------------
+
+            vision_model = self._get_vision_model()
+
+            # ----------------------------------------------
+            # API REQUEST
+            # ----------------------------------------------
 
             completion = (
                 self.client
                 .chat
                 .completions
                 .create(
-                    model=self.VISION_MODEL,
+                    model=vision_model,
                     messages=messages,
-                    max_tokens=4096,
+                    max_completion_tokens=4096,
                     temperature=0.4,
                 )
             )
 
+            # ----------------------------------------------
+            # RESPONSE
+            # ----------------------------------------------
+
             if not completion.choices:
-                return "❌ Vision javobi bo'sh."
+
+                return (
+                    "❌ Vision javobi bo'sh."
+                )
 
             content = (
                 completion
@@ -376,15 +516,58 @@ Faqat yakuniy foydali javobni ber.
             )
 
             if content:
+
                 return content
 
-            return "❌ Rasm bo'yicha javob olinmadi."
+            return (
+                "❌ Rasm bo'yicha javob olinmadi."
+            )
 
         except Exception as e:
 
+            error_text = str(e)
+
+            # ----------------------------------------------
+            # MODEL ACCESS ERROR
+            # ----------------------------------------------
+
+            if (
+                "model_not_found"
+                in error_text.lower()
+                or
+                "does not exist"
+                in error_text.lower()
+                or
+                "do not have access"
+                in error_text.lower()
+            ):
+
+                return (
+                    "❌ Vision modelga kirish imkoni yo'q.\n\n"
+                    f"Tanlangan model: `{self._get_vision_model()}`\n\n"
+                    "Groq API key'ingiz uchun vision model "
+                    "mavjudligini tekshiring."
+                )
+
+            # ----------------------------------------------
+            # IMAGE SIZE ERROR
+            # ----------------------------------------------
+
+            if "20MB" in error_text:
+
+                return (
+                    "❌ Rasm juda katta.\n\n"
+                    "Groq Vision uchun rasm "
+                    "20 MB dan kichik bo'lishi kerak."
+                )
+
+            # ----------------------------------------------
+            # OTHER ERROR
+            # ----------------------------------------------
+
             return (
                 "❌ Vision xatosi:\n\n"
-                + str(e)
+                + error_text
             )
 
     # ------------------------------------------------------
@@ -398,8 +581,7 @@ Faqat yakuniy foydali javobni ber.
         aspect_ratio="1:1",
     ):
 
-        # Bu engine orqali image generation
-        # ishlatilmaydi.
+        # Groq orqali image generation ishlatilmaydi.
 
         return None
 

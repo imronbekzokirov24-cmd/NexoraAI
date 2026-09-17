@@ -1,11 +1,12 @@
 """
 ============================================================
-EduMindAI Enterprise v3.5
-Google Login + AI Chat + Database
+EduMindAI Enterprise v3.6
+Google Login + AI Chat + Database + PDF AI
 ============================================================
 """
 
 import streamlit as st
+from pypdf import PdfReader
 
 from database import db
 from auth import auth
@@ -39,9 +40,7 @@ defaults = {
 }
 
 for key, value in defaults.items():
-
     if key not in st.session_state:
-
         st.session_state[key] = value
 
 
@@ -57,9 +56,7 @@ google_logged_in = auth.is_logged_in()
 # ==========================================================
 
 if not google_logged_in:
-
     auth.show_login_page()
-
     st.stop()
 
 
@@ -68,15 +65,9 @@ if not google_logged_in:
 # ==========================================================
 
 if not st.session_state.logged_in:
-
     success = auth.sync_google_user()
-
     if not success:
-
-        st.error(
-            "Google account ma'lumotlarini olishda xato."
-        )
-
+        st.error("Google account ma'lumotlarini olishda xato.")
         st.stop()
 
 
@@ -85,63 +76,35 @@ if not st.session_state.logged_in:
 # ==========================================================
 
 if not st.session_state.history_loaded:
-
     try:
-
-        saved_chats = db.load_chat(
-            st.session_state.user_id
-        )
-
+        saved_chats = db.load_chat(st.session_state.user_id)
         st.session_state.messages = []
-
         for message in saved_chats:
-
             st.session_state.messages.append(
                 {
                     "role": message["role"],
                     "content": message["content"],
                 }
             )
-
         st.session_state.history_loaded = True
-
     except Exception as e:
-
         st.session_state.history_loaded = True
-
-        st.warning(
-            f"Chat history yuklanmadi: {e}"
-        )
+        st.warning(f"Chat history yuklanmadi: {e}")
 
 
 # ==========================================================
 # HEADER
 # ==========================================================
 
-col1, col2 = st.columns(
-    [5, 1]
-)
+col1, col2 = st.columns([5, 1])
 
 with col1:
-
-    st.title(
-        "🧠 EduMindAI Enterprise"
-    )
-
-    st.caption(
-        "AI Chat • Multilingual • Code • "
-        "Reasoning • Database"
-    )
+    st.title("🧠 EduMindAI Enterprise")
+    st.caption("AI Chat • Multilingual • Code • Reasoning • Database • PDF")
 
 with col2:
-
     if st.session_state.user_picture:
-
-        st.image(
-            st.session_state.user_picture,
-            width=55,
-        )
-
+        st.image(st.session_state.user_picture, width=55)
 
 st.divider()
 
@@ -151,164 +114,92 @@ st.divider()
 # ==========================================================
 
 with st.sidebar:
-
-    st.title(
-        "⚙️ EduMindAI"
-    )
-
+    st.title("⚙️ EduMindAI")
     st.markdown("---")
-
 
     # ======================================================
     # ACCOUNT
     # ======================================================
+    st.subheader("👤 Account")
+    st.write(f"**{st.session_state.username}**")
+    st.caption(st.session_state.user_email)
+    st.write(f"Plan: **{st.session_state.plan}**")
 
-    st.subheader(
-        "👤 Account"
-    )
-
-    st.write(
-        f"**{st.session_state.username}**"
-    )
-
-    st.caption(
-        st.session_state.user_email
-    )
-
-    st.write(
-        f"Plan: **{st.session_state.plan}**"
-    )
-
-
-    # ======================================================
-    # LOGOUT
-    # ======================================================
-
-    if st.button(
-        "🚪 Google'dan chiqish",
-        use_container_width=True,
-    ):
-
+    if st.button("🚪 Google'dan chiqish", use_container_width=True):
         auth.logout()
-
 
     st.markdown("---")
 
+    # ======================================================
+    # PDF UPLOADER (YANGI QISM)
+    # ======================================================
+    st.subheader("📄 PDF AI")
+    uploaded_file = st.file_uploader("O'qish uchun PDF tanlang", type=["pdf"])
+    
+    pdf_context = ""
+    if uploaded_file is not None:
+        try:
+            reader = PdfReader(uploaded_file)
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    pdf_context += text + "\n"
+            st.success(f"PDF o'qildi! ({len(reader.pages)} sahifa)")
+            
+            # PDF yuklangani haqida statistika oshirish (agar db qo'llab-quvvatlasa)
+            try:
+                db.increase_pdfs(st.session_state.user_id)
+            except Exception:
+                pass
+                
+        except Exception as e:
+            st.error(f"PDF o'qishda xatolik: {e}")
+
+    st.markdown("---")
 
     # ======================================================
     # AI MODEL
     # ======================================================
-
-    st.subheader(
-        "🤖 AI Model"
-    )
-
+    st.subheader("🤖 AI Model")
     model = st.selectbox(
         "Model:",
-        [
-            "llama-3.3-70b-versatile",
-        ],
+        ["llama-3.3-70b-versatile"],
     )
-
-    ai.set_model(
-        model
-    )
-
+    ai.set_model(model)
 
     # ======================================================
     # SETTINGS
     # ======================================================
-
-    st.subheader(
-        "⚡ Settings"
-    )
-
-    deep_thinking = st.toggle(
-        "🔬 Deep Thinking",
-        value=False,
-    )
-
-    memory_enabled = st.toggle(
-        "🧠 Chat Memory",
-        value=True,
-    )
-
+    st.subheader("⚡ Settings")
+    deep_thinking = st.toggle("🔬 Deep Thinking", value=False)
+    memory_enabled = st.toggle("🧠 Chat Memory", value=True)
 
     st.markdown("---")
-
 
     # ======================================================
     # STATISTICS
     # ======================================================
-
-    st.subheader(
-        "📊 Statistics"
-    )
-
+    st.subheader("📊 Statistics")
     try:
-
-        stats = db.get_statistics(
-            st.session_state.user_id
-        )
-
+        stats = db.get_statistics(st.session_state.user_id)
     except Exception:
+        stats = {"questions": 0, "pdfs": 0, "images": 0}
 
-        stats = {
-            "questions": 0,
-            "pdfs": 0,
-            "images": 0,
-        }
-
-
-    st.metric(
-        "💬 Savollar",
-        stats.get(
-            "questions",
-            0
-        ),
-    )
-
-    st.metric(
-        "📄 PDF",
-        stats.get(
-            "pdfs",
-            0
-        ),
-    )
-
-    st.metric(
-        "🖼️ Images",
-        stats.get(
-            "images",
-            0
-        ),
-    )
-
+    st.metric("💬 Savollar", stats.get("questions", 0))
+    st.metric("📄 PDF", stats.get("pdfs", 0))
+    st.metric("🖼️ Images", stats.get("images", 0))
 
     st.markdown("---")
-
 
     # ======================================================
     # CLEAR HISTORY
     # ======================================================
-
-    if st.button(
-        "🗑️ Clear Chat",
-        use_container_width=True,
-    ):
-
+    if st.button("🗑️ Clear Chat", use_container_width=True):
         try:
-
-            db.clear_chat(
-                st.session_state.user_id
-            )
-
+            db.clear_chat(st.session_state.user_id)
         except Exception:
-
             pass
-
         st.session_state.messages = []
-
         st.rerun()
 
 
@@ -317,33 +208,17 @@ with st.sidebar:
 # ==========================================================
 
 for message in st.session_state.messages:
-
-    role = message.get(
-        "role",
-        "assistant"
-    )
-
-    content = message.get(
-        "content",
-        ""
-    )
-
-    with st.chat_message(
-        role
-    ):
-
-        st.markdown(
-            content
-        )
+    role = message.get("role", "assistant")
+    content = message.get("content", "")
+    with st.chat_message(role):
+        st.markdown(content)
 
 
 # ==========================================================
 # CHAT INPUT
 # ==========================================================
 
-prompt = st.chat_input(
-    "EduMindAI bilan suhbatni boshlang..."
-)
+prompt = st.chat_input("EduMindAI bilan suhbatni boshlang yoki PDF haqida so'rang...")
 
 
 # ==========================================================
@@ -351,123 +226,49 @@ prompt = st.chat_input(
 # ==========================================================
 
 if prompt:
-
-    # ======================================================
-    # USER MESSAGE
-    # ======================================================
-
     st.session_state.messages.append(
         {
             "role": "user",
             "content": prompt,
         }
     )
-
-    with st.chat_message(
-        "user"
-    ):
-
-        st.markdown(
-            prompt
-        )
-
-
-    # ======================================================
-    # SAVE USER MESSAGE
-    # ======================================================
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
     try:
-
-        db.save_chat(
-            st.session_state.user_id,
-            "user",
-            prompt,
-        )
-
-        db.increase_questions(
-            st.session_state.user_id
-        )
-
+        db.save_chat(st.session_state.user_id, "user", prompt)
+        db.increase_questions(st.session_state.user_id)
     except Exception:
-
         pass
 
-
-    # ======================================================
-    # AI RESPONSE
-    # ======================================================
-
-    with st.chat_message(
-        "assistant"
-    ):
-
+    with st.chat_message("assistant"):
         response_box = st.empty()
-
         response = ""
 
-
-        # --------------------------------------------------
-        # HISTORY
-        # --------------------------------------------------
-
         if memory_enabled:
-
-            history = st.session_state.messages[
-                :-1
-            ]
-
+            history = st.session_state.messages[:-1]
         else:
-
             history = None
 
-
-        # --------------------------------------------------
-        # AI STREAM
-        # --------------------------------------------------
+        # Agar PDF yuklangan bo'lsa, uning matnini context sifatida yuboramiz
+        final_context = pdf_context if 'pdf_context' in locals() and pdf_context else ""
 
         try:
-
             for chunk in ai.stream_chat(
-
                 user_prompt=prompt,
-
                 history=history,
-
-                context="",
-
+                context=final_context,  # PDF matni shu yerga boradi
                 web_search="",
-
                 deep_thinking=deep_thinking,
-
             ):
+                response += str(chunk)
+                response_box.markdown(response + "▌")
 
-                response += str(
-                    chunk
-                )
-
-                response_box.markdown(
-                    response + "▌"
-                )
-
-
-            response_box.markdown(
-                response
-            )
+            response_box.markdown(response)
 
         except Exception as e:
-
-            response = (
-                f"❌ AI xatosi: {e}"
-            )
-
-            response_box.error(
-                response
-            )
-
-
-    # ======================================================
-    # SAVE AI RESPONSE
-    # ======================================================
+            response = f"❌ AI xatosi: {e}"
+            response_box.error(response)
 
     st.session_state.messages.append(
         {
@@ -475,15 +276,7 @@ if prompt:
             "content": response,
         }
     )
-
     try:
-
-        db.save_chat(
-            st.session_state.user_id,
-            "assistant",
-            response,
-        )
-
+        db.save_chat(st.session_state.user_id, "assistant", response)
     except Exception:
-
         pass

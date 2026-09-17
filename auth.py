@@ -13,13 +13,13 @@ from database import db
 class Auth:
 
     def __init__(self):
-        self._init_session()
+        self.init_session()
 
     # ======================================================
     # SESSION
     # ======================================================
 
-    def _init_session(self):
+    def init_session(self):
 
         if "logged_in" not in st.session_state:
             st.session_state.logged_in = False
@@ -28,7 +28,10 @@ class Auth:
             st.session_state.user_id = None
 
         if "username" not in st.session_state:
-            st.session_state.username = "Guest"
+            st.session_state.username = ""
+
+        if "email" not in st.session_state:
+            st.session_state.email = ""
 
         if "plan" not in st.session_state:
             st.session_state.plan = "Free"
@@ -40,19 +43,29 @@ class Auth:
     def hash_password(self, password):
 
         return hashlib.sha256(
-            password.encode("utf-8")
+            str(password).encode("utf-8")
         ).hexdigest()
 
     # ======================================================
     # REGISTER
     # ======================================================
 
-    def register(self, username, password):
+    def register(
+        self,
+        username,
+        email,
+        password
+    ):
 
-        username = username.strip()
+        username = str(username).strip()
+        email = str(email).strip()
+        password = str(password)
 
         if not username:
             return False, "Username kiriting."
+
+        if not email:
+            return False, "Email kiriting."
 
         if not password:
             return False, "Password kiriting."
@@ -63,55 +76,84 @@ class Auth:
         if len(password) < 6:
             return False, "Password kamida 6 ta belgidan iborat bo‘lsin."
 
+        password_hash = self.hash_password(password)
+
         try:
 
-            password_hash = self.hash_password(password)
-
-            result = db.create_user(
-                username,
-                password_hash
+            created = db.create_user(
+                username=username,
+                password=password_hash,
+                email=email
             )
 
-            if result:
+            if created:
 
-                return True, "Account muvaffaqiyatli yaratildi."
+                return (
+                    True,
+                    "Account muvaffaqiyatli yaratildi."
+                )
 
-            return False, "Bu username allaqachon mavjud."
+            return (
+                False,
+                "Bu username allaqachon mavjud."
+            )
 
         except Exception as e:
 
-            return False, f"Register xatosi: {e}"
+            return (
+                False,
+                f"Register xatosi: {e}"
+            )
 
     # ======================================================
     # LOGIN
     # ======================================================
 
-    def login(self, username, password):
+    def login(
+        self,
+        username,
+        password
+    ):
 
-        username = username.strip()
+        username = str(username).strip()
+        password = str(password)
 
-        if not username or not password:
+        if not username:
+            return False, "Username kiriting."
 
-            return False, "Username va password kiriting."
+        if not password:
+            return False, "Password kiriting."
+
+        password_hash = self.hash_password(password)
 
         try:
 
-            password_hash = self.hash_password(password)
-
             user = db.authenticate_user(
-                username,
-                password_hash
+                username=username,
+                password=password_hash
             )
 
             if not user:
 
-                return False, "Username yoki password noto‘g‘ri."
+                return (
+                    False,
+                    "Username yoki password noto‘g‘ri."
+                )
+
+            # ==============================================
+            # SESSION
+            # ==============================================
 
             st.session_state.logged_in = True
 
             st.session_state.user_id = user["id"]
 
             st.session_state.username = user["username"]
+
+            st.session_state.email = user.get(
+                "email",
+                ""
+            )
 
             st.session_state.plan = user.get(
                 "plan",
@@ -122,7 +164,10 @@ class Auth:
 
         except Exception as e:
 
-            return False, f"Login xatosi: {e}"
+            return (
+                False,
+                f"Login xatosi: {e}"
+            )
 
     # ======================================================
     # LOGOUT
@@ -134,7 +179,9 @@ class Auth:
 
         st.session_state.user_id = None
 
-        st.session_state.username = "Guest"
+        st.session_state.username = ""
+
+        st.session_state.email = ""
 
         st.session_state.plan = "Free"
 
@@ -154,7 +201,22 @@ class Auth:
         )
 
     # ======================================================
-    # LOGIN PAGE
+    # CURRENT USER
+    # ======================================================
+
+    def current_user(self):
+
+        user_id = st.session_state.get(
+            "user_id"
+        )
+
+        if not user_id:
+            return None
+
+        return db.get_user(user_id)
+
+    # ======================================================
+    # AUTH PAGE
     # ======================================================
 
     def show_auth_page(self):
@@ -162,24 +224,22 @@ class Auth:
         st.markdown(
             """
             <div style="
-                max-width:600px;
-                margin:auto;
                 text-align:center;
-                padding-top:40px;
+                padding:35px 10px 20px 10px;
             ">
 
-            <h1>🧠 EduMindAI</h1>
+                <h1>🧠 EduMindAI</h1>
 
-            <p>
-            AI Learning Assistant
-            </p>
+                <p>
+                    AI Learning Assistant
+                </p>
 
             </div>
             """,
             unsafe_allow_html=True
         )
 
-        tab1, tab2 = st.tabs(
+        login_tab, register_tab = st.tabs(
             [
                 "🔐 Login",
                 "📝 Register"
@@ -190,29 +250,32 @@ class Auth:
         # LOGIN
         # ==================================================
 
-        with tab1:
+        with login_tab:
 
             st.subheader("Welcome back!")
 
-            username = st.text_input(
+            login_username = st.text_input(
                 "Username",
-                key="login_username"
+                key="auth_login_username"
             )
 
-            password = st.text_input(
+            login_password = st.text_input(
                 "Password",
                 type="password",
-                key="login_password"
+                key="auth_login_password"
             )
 
-            if st.button(
+            login_button = st.button(
                 "🔐 Login",
-                use_container_width=True
-            ):
+                use_container_width=True,
+                key="auth_login_button"
+            )
+
+            if login_button:
 
                 success, message = self.login(
-                    username,
-                    password
+                    login_username,
+                    login_password
                 )
 
                 if success:
@@ -229,33 +292,41 @@ class Auth:
         # REGISTER
         # ==================================================
 
-        with tab2:
+        with register_tab:
 
             st.subheader("Create your account")
 
-            username = st.text_input(
+            register_username = st.text_input(
                 "Username",
-                key="register_username"
+                key="auth_register_username"
             )
 
-            password = st.text_input(
+            register_email = st.text_input(
+                "Email",
+                key="auth_register_email"
+            )
+
+            register_password = st.text_input(
                 "Password",
                 type="password",
-                key="register_password"
+                key="auth_register_password"
             )
 
-            confirm_password = st.text_input(
+            register_confirm = st.text_input(
                 "Confirm Password",
                 type="password",
-                key="register_confirm_password"
+                key="auth_register_confirm"
             )
 
-            if st.button(
+            register_button = st.button(
                 "📝 Create Account",
-                use_container_width=True
-            ):
+                use_container_width=True,
+                key="auth_register_button"
+            )
 
-                if password != confirm_password:
+            if register_button:
+
+                if register_password != register_confirm:
 
                     st.error(
                         "Passwordlar bir xil emas."
@@ -264,8 +335,9 @@ class Auth:
                 else:
 
                     success, message = self.register(
-                        username,
-                        password
+                        register_username,
+                        register_email,
+                        register_password
                     )
 
                     if success:

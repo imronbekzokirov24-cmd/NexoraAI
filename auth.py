@@ -1,12 +1,14 @@
 """
 ============================================================
 EduMindAI Enterprise
-Authentication System
+Google Authentication
 ============================================================
 """
 
+import secrets
 import hashlib
 import streamlit as st
+
 from database import db
 
 
@@ -30,8 +32,11 @@ class Auth:
         if "username" not in st.session_state:
             st.session_state.username = ""
 
-        if "email" not in st.session_state:
-            st.session_state.email = ""
+        if "user_email" not in st.session_state:
+            st.session_state.user_email = ""
+
+        if "user_picture" not in st.session_state:
+            st.session_state.user_picture = ""
 
         if "plan" not in st.session_state:
             st.session_state.plan = "Free"
@@ -47,147 +52,208 @@ class Auth:
         ).hexdigest()
 
     # ======================================================
-    # REGISTER
+    # GOOGLE LOGIN
     # ======================================================
 
-    def register(
-        self,
-        username,
-        email,
-        password
-    ):
-
-        username = str(username).strip()
-        email = str(email).strip()
-        password = str(password)
-
-        if not username:
-            return False, "Username kiriting."
-
-        if not email:
-            return False, "Email kiriting."
-
-        if not password:
-            return False, "Password kiriting."
-
-        if len(username) < 3:
-            return False, "Username kamida 3 ta belgidan iborat bo‘lsin."
-
-        if len(password) < 6:
-            return False, "Password kamida 6 ta belgidan iborat bo‘lsin."
-
-        password_hash = self.hash_password(password)
+    def google_login(self):
 
         try:
 
+            st.login("google")
+
+        except Exception as e:
+
+            st.error(
+                f"Google Login xatosi: {e}"
+            )
+
+    # ======================================================
+    # GOOGLE USERNI DATABASEGA ULASH
+    # ======================================================
+
+    def sync_google_user(self):
+
+        try:
+
+            if not st.user.is_logged_in:
+                return False
+
+        except Exception:
+
+            return False
+
+        # ----------------------------------------------
+        # GOOGLE DATA
+        # ----------------------------------------------
+
+        email = getattr(
+            st.user,
+            "email",
+            ""
+        )
+
+        name = getattr(
+            st.user,
+            "name",
+            ""
+        )
+
+        picture = getattr(
+            st.user,
+            "picture",
+            ""
+        )
+
+        sub = getattr(
+            st.user,
+            "sub",
+            ""
+        )
+
+        if not email:
+
+            return False
+
+        # ----------------------------------------------
+        # USERNAME
+        # ----------------------------------------------
+
+        if name:
+
+            username = str(name).strip()
+
+        else:
+
+            username = email.split("@")[0]
+
+        # Database username unique bo‘lishi kerak.
+
+        username = username.replace(
+            " ",
+            "_"
+        )
+
+        if not username:
+
+            username = "google_user"
+
+
+        # ----------------------------------------------
+        # MAVJUD USER
+        # ----------------------------------------------
+
+        existing_user = (
+            db.get_user_by_username(
+                username
+            )
+        )
+
+        # ----------------------------------------------
+        # YANGI USER
+        # ----------------------------------------------
+
+        if not existing_user:
+
+            # Google user uchun tasodifiy ichki
+            # password yaratamiz.
+            #
+            # Bu password Google account passwordi emas.
+
+            random_password = (
+                secrets.token_urlsafe(32)
+            )
+
             created = db.create_user(
                 username=username,
-                password=password_hash,
-                email=email
+                password=self.hash_password(
+                    random_password
+                ),
+                email=email,
             )
 
             if created:
 
-                return (
-                    True,
-                    "Account muvaffaqiyatli yaratildi."
+                existing_user = (
+                    db.get_user_by_username(
+                        username
+                    )
                 )
 
-            return (
-                False,
-                "Bu username allaqachon mavjud."
+        # ----------------------------------------------
+        # USER TOPILMAGAN BO‘LSA
+        # ----------------------------------------------
+
+        if not existing_user:
+
+            # Username conflict bo‘lishi mumkin.
+            # Email asosida yana bir username qilamiz.
+
+            safe_username = (
+                "google_"
+                + email.split("@")[0]
             )
 
-        except Exception as e:
-
-            return (
-                False,
-                f"Register xatosi: {e}"
+            safe_username = safe_username.replace(
+                " ",
+                "_"
             )
 
-    # ======================================================
-    # LOGIN
-    # ======================================================
-
-    def login(
-        self,
-        username,
-        password
-    ):
-
-        username = str(username).strip()
-        password = str(password)
-
-        if not username:
-            return False, "Username kiriting."
-
-        if not password:
-            return False, "Password kiriting."
-
-        password_hash = self.hash_password(password)
-
-        try:
-
-            user = db.authenticate_user(
-                username=username,
-                password=password_hash
+            existing_user = (
+                db.get_user_by_username(
+                    safe_username
+                )
             )
 
-            if not user:
+            if not existing_user:
 
-                return (
-                    False,
-                    "Username yoki password noto‘g‘ri."
+                random_password = (
+                    secrets.token_urlsafe(32)
                 )
 
-            # ==============================================
-            # SESSION
-            # ==============================================
+                db.create_user(
+                    username=safe_username,
+                    password=self.hash_password(
+                        random_password
+                    ),
+                    email=email,
+                )
 
-            st.session_state.logged_in = True
+                existing_user = (
+                    db.get_user_by_username(
+                        safe_username
+                    )
+                )
 
-            st.session_state.user_id = user["id"]
+            username = safe_username
 
-            st.session_state.username = user["username"]
+        # ----------------------------------------------
+        # SESSION
+        # ----------------------------------------------
 
-            st.session_state.email = user.get(
-                "email",
-                ""
-            )
+        st.session_state.logged_in = True
 
-            st.session_state.plan = user.get(
+        st.session_state.user_id = (
+            existing_user["id"]
+        )
+
+        st.session_state.username = (
+            existing_user["username"]
+        )
+
+        st.session_state.user_email = email
+
+        st.session_state.user_picture = picture
+
+        st.session_state.plan = (
+            existing_user.get(
                 "plan",
                 "Free"
             )
+        )
 
-            return True, "Login muvaffaqiyatli."
+        st.session_state.google_sub = sub
 
-        except Exception as e:
-
-            return (
-                False,
-                f"Login xatosi: {e}"
-            )
-
-    # ======================================================
-    # LOGOUT
-    # ======================================================
-
-    def logout(self):
-
-        st.session_state.logged_in = False
-
-        st.session_state.user_id = None
-
-        st.session_state.username = ""
-
-        st.session_state.email = ""
-
-        st.session_state.plan = "Free"
-
-        st.session_state.messages = []
-
-        st.rerun()
+        return True
 
     # ======================================================
     # CHECK LOGIN
@@ -195,42 +261,65 @@ class Auth:
 
     def is_logged_in(self):
 
-        return st.session_state.get(
-            "logged_in",
-            False
-        )
+        try:
+
+            return bool(
+                st.user.is_logged_in
+            )
+
+        except Exception:
+
+            return False
 
     # ======================================================
-    # CURRENT USER
+    # LOGOUT
     # ======================================================
 
-    def current_user(self):
+    def logout(self):
 
-        user_id = st.session_state.get(
-            "user_id"
-        )
+        # Local sessionni tozalash
 
-        if not user_id:
-            return None
+        st.session_state.logged_in = False
 
-        return db.get_user(user_id)
+        st.session_state.user_id = None
+
+        st.session_state.username = ""
+
+        st.session_state.user_email = ""
+
+        st.session_state.user_picture = ""
+
+        st.session_state.plan = "Free"
+
+        st.session_state.messages = []
+
+        # Google/Streamlit logout
+
+        try:
+
+            st.logout()
+
+        except Exception:
+
+            st.rerun()
 
     # ======================================================
-    # AUTH PAGE
+    # LOGIN PAGE
     # ======================================================
 
-    def show_auth_page(self):
+    def show_login_page(self):
 
         st.markdown(
             """
             <div style="
                 text-align:center;
-                padding:35px 10px 20px 10px;
+                padding-top:80px;
+                padding-bottom:30px;
             ">
 
                 <h1>🧠 EduMindAI</h1>
 
-                <p>
+                <p style="font-size:20px;">
                     AI Learning Assistant
                 </p>
 
@@ -239,118 +328,30 @@ class Auth:
             unsafe_allow_html=True
         )
 
-        login_tab, register_tab = st.tabs(
-            [
-                "🔐 Login",
-                "📝 Register"
-            ]
+        st.markdown(
+            "### 🔐 Accountga kirish"
         )
 
-        # ==================================================
-        # LOGIN
-        # ==================================================
+        st.write(
+            "EduMindAI'dan foydalanish uchun "
+            "Google account orqali kiring."
+        )
 
-        with login_tab:
+        st.write("")
 
-            st.subheader("Welcome back!")
+        if st.button(
+            "🌐 Continue with Google",
+            use_container_width=True,
+            type="primary",
+        ):
 
-            login_username = st.text_input(
-                "Username",
-                key="auth_login_username"
-            )
+            self.google_login()
 
-            login_password = st.text_input(
-                "Password",
-                type="password",
-                key="auth_login_password"
-            )
+        st.write("")
 
-            login_button = st.button(
-                "🔐 Login",
-                use_container_width=True,
-                key="auth_login_button"
-            )
-
-            if login_button:
-
-                success, message = self.login(
-                    login_username,
-                    login_password
-                )
-
-                if success:
-
-                    st.success(message)
-
-                    st.rerun()
-
-                else:
-
-                    st.error(message)
-
-        # ==================================================
-        # REGISTER
-        # ==================================================
-
-        with register_tab:
-
-            st.subheader("Create your account")
-
-            register_username = st.text_input(
-                "Username",
-                key="auth_register_username"
-            )
-
-            register_email = st.text_input(
-                "Email",
-                key="auth_register_email"
-            )
-
-            register_password = st.text_input(
-                "Password",
-                type="password",
-                key="auth_register_password"
-            )
-
-            register_confirm = st.text_input(
-                "Confirm Password",
-                type="password",
-                key="auth_register_confirm"
-            )
-
-            register_button = st.button(
-                "📝 Create Account",
-                use_container_width=True,
-                key="auth_register_button"
-            )
-
-            if register_button:
-
-                if register_password != register_confirm:
-
-                    st.error(
-                        "Passwordlar bir xil emas."
-                    )
-
-                else:
-
-                    success, message = self.register(
-                        register_username,
-                        register_email,
-                        register_password
-                    )
-
-                    if success:
-
-                        st.success(message)
-
-                        st.info(
-                            "Endi Login bo‘limidan kiring."
-                        )
-
-                    else:
-
-                        st.error(message)
+        st.caption(
+            "Google orqali xavfsiz kirish."
+        )
 
 
 # ==========================================================

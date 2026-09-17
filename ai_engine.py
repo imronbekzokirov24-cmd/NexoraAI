@@ -15,8 +15,12 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
-        self.vision_model = "llama-3.3-70b-versatile"
-        self.model = "llama-3.3-70b-versatile"
+        # Current Groq model
+        self.model = "openai/gpt-oss-120b"
+
+        # GPT-OSS 120B is text model
+        self.vision_model = None
+
         self.client = None
         self._init_client()
 
@@ -30,8 +34,10 @@ class AIEngine:
         try:
             if "GROQ_API_KEY" in st.secrets:
                 api_key = st.secrets["GROQ_API_KEY"]
+
             elif "GROQ_API_KEY" in os.environ:
                 api_key = os.environ["GROQ_API_KEY"]
+
         except Exception:
             pass
 
@@ -42,7 +48,9 @@ class AIEngine:
         clean_key = str(api_key).strip().strip('"').strip("'")
 
         try:
-            self.client = Groq(api_key=clean_key)
+            self.client = Groq(
+                api_key=clean_key
+            )
         except Exception:
             self.client = None
 
@@ -51,20 +59,24 @@ class AIEngine:
     # ======================================================
 
     def set_model(self, model_name: str):
+
         valid_models = [
-            "llama-3.3-70b-versatile",
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.6-27b",
         ]
 
         if model_name in valid_models:
             self.model = model_name
         else:
-            self.model = "llama-3.3-70b-versatile"
+            self.model = "openai/gpt-oss-120b"
 
     # ======================================================
     # CHECK CLIENT
     # ======================================================
 
     def _check_client(self):
+
         if self.client is None:
             self._init_client()
 
@@ -85,34 +97,73 @@ class AIEngine:
         web_search="",
         deep_thinking=False,
     ):
+
         if not self._check_client():
             yield "❌ GROQ_API_KEY topilmadi."
             return
 
+        # ==================================================
+        # SYSTEM PROMPT
+        # ==================================================
+
         system_prompt = """
 Sen EduMindAI nomli zamonaviy AI yordamchisan.
 
-MUHIM QOIDA: Agar sizni kim yaratgan deb so'rashsa, har doim quyidagicha javob bering:
-"Meni 2012-yil 20-oktyabrda tug'ilgan Imronbek Zokirov yaratgan."
-Hech qachon OpenAI yoki boshqa kompaniya yaratganini aytmang.
-
 Foydalanuvchiga aniq, foydali va tushunarli javob ber.
-Foydalanuvchi qaysi tilda yozsa, iloji boricha o‘sha tilda javob ber.
-Agar foydalanuvchi kod so‘rasa, kodni Markdown code block ichida ber.
+
+Foydalanuvchi qaysi tilda yozsa,
+iloji boricha o‘sha tilda javob ber.
+
+Agar foydalanuvchi kod so‘rasa,
+kodni Markdown code block ichida ber.
+
 Keraksiz uzun javoblardan qoch.
+
+Agar biror ma'lumot aniq bo‘lmasa,
+uni to‘qib chiqarmasdan, noaniqligini ayt.
 """
+
+        # ==================================================
+        # DEEP THINKING
+        # ==================================================
 
         if deep_thinking:
+
             system_prompt += """
-Murakkab savollarda javobni berishdan oldin muammoni yaxshilab tahlil qil.
-Lekin foydalanuvchiga ichki reasoning yoki yashirin fikrlash jarayonini ko‘rsatma.
+Murakkab savollarda javobni berishdan oldin
+muammoni yaxshilab tahlil qil.
+
+Ichki reasoning yoki yashirin fikrlash jarayonini
+foydalanuvchiga ko‘rsatma.
+
+Faqat kerakli yakuniy javob va tushuntirishni ber.
 """
 
+        # ==================================================
+        # CONTEXT
+        # ==================================================
+
         if context:
-            system_prompt += "\n\nQo‘shimcha kontekst:\n" + str(context)
+
+            system_prompt += (
+                "\n\nQo‘shimcha kontekst:\n"
+                + str(context)
+            )
+
+        # ==================================================
+        # WEB SEARCH
+        # ==================================================
 
         if web_search:
-            system_prompt += "\n\nInternet qidiruv natijalari:\n" + str(web_search)
+
+            system_prompt += (
+                "\n\nInternet qidiruv natijalari:\n"
+                + str(web_search)
+            )
+
+        # ==================================================
+        # MESSAGES
+        # ==================================================
 
         messages = [
             {
@@ -121,21 +172,35 @@ Lekin foydalanuvchiga ichki reasoning yoki yashirin fikrlash jarayonini ko‘rsa
             }
         ]
 
+        # ==================================================
+        # HISTORY
+        # ==================================================
+
         if history:
+
             for message in history:
+
                 role = message.get("role")
                 content = message.get("content")
 
-                if role not in ["user", "assistant"]:
+                if role not in [
+                    "user",
+                    "assistant"
+                ]:
                     continue
 
                 if isinstance(content, str):
+
                     messages.append(
                         {
                             "role": role,
                             "content": content,
                         }
                     )
+
+        # ==================================================
+        # USER MESSAGE
+        # ==================================================
 
         messages.append(
             {
@@ -144,24 +209,47 @@ Lekin foydalanuvchiga ichki reasoning yoki yashirin fikrlash jarayonini ko‘rsa
             }
         )
 
+        # ==================================================
+        # GROQ REQUEST
+        # ==================================================
+
         try:
+
             completion = self.client.chat.completions.create(
+
                 model=self.model,
+
                 messages=messages,
+
                 stream=True,
+
                 temperature=0.7,
+
+                max_tokens=4096,
             )
 
+            # ==============================================
+            # STREAM RESPONSE
+            # ==============================================
+
             for chunk in completion:
+
                 try:
+
+                    if not chunk.choices:
+                        continue
+
                     content = chunk.choices[0].delta.content
+
                     if content:
                         yield content
+
                 except Exception:
                     continue
 
         except Exception as e:
-            yield f"❌ Groq xatosi: {e}"
+
+            yield f"❌ Groq xatosi: {str(e)}"
 
     # ======================================================
     # NORMAL CHAT
@@ -175,15 +263,24 @@ Lekin foydalanuvchiga ichki reasoning yoki yashirin fikrlash jarayonini ko‘rsa
         web_search="",
         deep_thinking=False,
     ):
+
         result = ""
+
         for chunk in self.stream_chat(
+
             user_prompt=user_prompt,
+
             history=history,
+
             context=context,
+
             web_search=web_search,
+
             deep_thinking=deep_thinking,
         ):
+
             result += str(chunk)
+
         return result
 
     # ======================================================
@@ -195,16 +292,29 @@ Lekin foydalanuvchiga ichki reasoning yoki yashirin fikrlash jarayonini ko‘rsa
         image,
         user_prompt,
     ):
+
         try:
+
             if not self._check_client():
+
                 return "❌ GROQ_API_KEY topilmadi."
 
+            # GPT-OSS 120B text-only model.
+            # Image input bu model orqali ishlatilmaydi.
+
             return self.chat(
-                user_prompt=f"[Foydalanuvchi rasm yukladi va so'radi: {user_prompt}]"
+                user_prompt=(
+                    f"Foydalanuvchi rasm haqida so‘radi: "
+                    f"{user_prompt}"
+                )
             )
 
         except Exception as e:
-            return f"❌ Rasmni tahlil qilishda xato: {str(e)}"
+
+            return (
+                f"❌ Rasmni tahlil qilishda xato: "
+                f"{str(e)}"
+            )
 
     # ======================================================
     # IMAGE GENERATION
@@ -216,64 +326,161 @@ Lekin foydalanuvchiga ichki reasoning yoki yashirin fikrlash jarayonini ko‘rsa
         style="Realistic",
         aspect_ratio="1:1",
     ):
+
         try:
+
             api_url = None
             api_key = None
 
+            # ==============================================
+            # STREAMLIT SECRETS
+            # ==============================================
+
             try:
+
                 if "IMAGE_API_URL" in st.secrets:
-                    api_url = st.secrets["IMAGE_API_URL"]
+
+                    api_url = st.secrets[
+                        "IMAGE_API_URL"
+                    ]
+
                 if "IMAGE_API_KEY" in st.secrets:
-                    api_key = st.secrets["IMAGE_API_KEY"]
+
+                    api_key = st.secrets[
+                        "IMAGE_API_KEY"
+                    ]
+
             except Exception:
                 pass
 
+            # ==============================================
+            # ENVIRONMENT VARIABLES
+            # ==============================================
+
             if not api_url:
-                api_url = os.environ.get("IMAGE_API_URL")
+
+                api_url = os.environ.get(
+                    "IMAGE_API_URL"
+                )
+
             if not api_key:
-                api_key = os.environ.get("IMAGE_API_KEY")
+
+                api_key = os.environ.get(
+                    "IMAGE_API_KEY"
+                )
+
+            # ==============================================
+            # NO IMAGE API
+            # ==============================================
 
             if not api_url:
                 return None
 
+            # ==============================================
+            # HEADERS
+            # ==============================================
+
             headers = {}
+
             if api_key:
-                headers["Authorization"] = f"Bearer {api_key}"
-            headers["Content-Type"] = "application/json"
+
+                headers["Authorization"] = (
+                    f"Bearer {api_key}"
+                )
+
+            headers["Content-Type"] = (
+                "application/json"
+            )
+
+            # ==============================================
+            # PAYLOAD
+            # ==============================================
 
             payload = {
+
                 "prompt": str(prompt),
+
                 "style": str(style),
-                "aspect_ratio": str(aspect_ratio),
+
+                "aspect_ratio": str(
+                    aspect_ratio
+                ),
             }
 
+            # ==============================================
+            # REQUEST
+            # ==============================================
+
             response = requests.post(
+
                 api_url,
+
                 headers=headers,
+
                 json=payload,
+
                 timeout=120,
             )
+
             response.raise_for_status()
 
-            content_type = response.headers.get("content-type", "")
+            # ==============================================
+            # DIRECT IMAGE RESPONSE
+            # ==============================================
+
+            content_type = response.headers.get(
+                "content-type",
+                ""
+            )
+
             if content_type.startswith("image/"):
+
                 return response.content
 
-            data = response.json()
-            for key in ["image", "image_base64", "b64_json"]:
-                if key in data:
-                    value = data[key]
-                    if isinstance(value, str):
-                        return base64.b64decode(value)
+            # ==============================================
+            # JSON RESPONSE
+            # ==============================================
 
-            for key in ["url", "image_url", "output"]:
+            data = response.json()
+
+            # Base64 image
+
+            for key in [
+                "image",
+                "image_base64",
+                "b64_json",
+            ]:
+
                 if key in data:
+
                     value = data[key]
+
                     if isinstance(value, str):
+
+                        return base64.b64decode(
+                            value
+                        )
+
+            # Image URL
+
+            for key in [
+                "url",
+                "image_url",
+                "output",
+            ]:
+
+                if key in data:
+
+                    value = data[key]
+
+                    if isinstance(value, str):
+
                         return value
 
             return None
+
         except Exception:
+
             return None
 
 

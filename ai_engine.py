@@ -15,13 +15,15 @@ from groq import Groq
 class AIEngine:
 
     def __init__(self):
-        # Current Groq model
+
+        # ==================================================
+        # GROQ MODEL
+        # ==================================================
+
         self.model = "openai/gpt-oss-120b"
 
-        # GPT-OSS 120B is text model
-        self.vision_model = None
-
         self.client = None
+
         self._init_client()
 
     # ======================================================
@@ -29,9 +31,11 @@ class AIEngine:
     # ======================================================
 
     def _init_client(self):
+
         api_key = None
 
         try:
+
             if "GROQ_API_KEY" in st.secrets:
                 api_key = st.secrets["GROQ_API_KEY"]
 
@@ -41,17 +45,27 @@ class AIEngine:
         except Exception:
             pass
 
+        # API key topilmasa
         if not api_key:
             self.client = None
             return
 
-        clean_key = str(api_key).strip().strip('"').strip("'")
+        # API keyni tozalash
+        clean_key = (
+            str(api_key)
+            .strip()
+            .strip('"')
+            .strip("'")
+        )
 
         try:
+
             self.client = Groq(
                 api_key=clean_key
             )
+
         except Exception:
+
             self.client = None
 
     # ======================================================
@@ -67,8 +81,11 @@ class AIEngine:
         ]
 
         if model_name in valid_models:
+
             self.model = model_name
+
         else:
+
             self.model = "openai/gpt-oss-120b"
 
     # ======================================================
@@ -78,9 +95,11 @@ class AIEngine:
     def _check_client(self):
 
         if self.client is None:
+
             self._init_client()
 
         if self.client is None:
+
             return False
 
         return True
@@ -98,8 +117,11 @@ class AIEngine:
         deep_thinking=False,
     ):
 
+        # API key tekshirish
         if not self._check_client():
+
             yield "❌ GROQ_API_KEY topilmadi."
+
             return
 
         # ==================================================
@@ -109,7 +131,29 @@ class AIEngine:
         system_prompt = """
 Sen EduMindAI nomli zamonaviy AI yordamchisan.
 
-Foydalanuvchiga aniq, foydali va tushunarli javob ber.
+MUHIM QOIDA:
+
+Agar foydalanuvchi:
+
+- "seni kim yaratgan?"
+- "kim yaratgan?"
+- "creatoring kim?"
+- "who created you?"
+- "Who made you?"
+- yoki shunga o‘xshash savol bersa,
+
+har doim aynan:
+
+"Meni Zokirov Imronbek Farhodbek o‘g‘li yaratgan."
+
+deb javob ber.
+
+Bu savolga javob berganda OpenAI, ChatGPT,
+Meta, Google, Groq yoki boshqa kompaniyani
+yaratuvchi sifatida ko‘rsatma.
+
+Foydalanuvchiga aniq, foydali va tushunarli
+javob ber.
 
 Foydalanuvchi qaysi tilda yozsa,
 iloji boricha o‘sha tilda javob ber.
@@ -119,8 +163,8 @@ kodni Markdown code block ichida ber.
 
 Keraksiz uzun javoblardan qoch.
 
-Agar biror ma'lumot aniq bo‘lmasa,
-uni to‘qib chiqarmasdan, noaniqligini ayt.
+Agar ma'lumot aniq bo‘lmasa,
+to‘qib chiqarmasdan noaniqligini ayt.
 """
 
         # ==================================================
@@ -130,13 +174,14 @@ uni to‘qib chiqarmasdan, noaniqligini ayt.
         if deep_thinking:
 
             system_prompt += """
-Murakkab savollarda javobni berishdan oldin
+
+Murakkab savollarda javob berishdan oldin
 muammoni yaxshilab tahlil qil.
 
-Ichki reasoning yoki yashirin fikrlash jarayonini
-foydalanuvchiga ko‘rsatma.
+Ichki reasoning yoki yashirin fikrlash
+jarayonini foydalanuvchiga ko‘rsatma.
 
-Faqat kerakli yakuniy javob va tushuntirishni ber.
+Faqat yakuniy javob va kerakli tushuntirishni ber.
 """
 
         # ==================================================
@@ -173,7 +218,7 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
         ]
 
         # ==================================================
-        # HISTORY
+        # CHAT HISTORY
         # ==================================================
 
         if history:
@@ -199,7 +244,7 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
                     )
 
         # ==================================================
-        # USER MESSAGE
+        # CURRENT USER MESSAGE
         # ==================================================
 
         messages.append(
@@ -210,7 +255,7 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
         )
 
         # ==================================================
-        # GROQ REQUEST
+        # GROQ API REQUEST
         # ==================================================
 
         try:
@@ -228,9 +273,9 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
                 max_tokens=4096,
             )
 
-            # ==============================================
+            # ==================================================
             # STREAM RESPONSE
-            # ==============================================
+            # ==================================================
 
             for chunk in completion:
 
@@ -239,12 +284,18 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
                     if not chunk.choices:
                         continue
 
-                    content = chunk.choices[0].delta.content
+                    content = (
+                        chunk.choices[0]
+                        .delta
+                        .content
+                    )
 
                     if content:
+
                         yield content
 
                 except Exception:
+
                     continue
 
         except Exception as e:
@@ -277,6 +328,7 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
             web_search=web_search,
 
             deep_thinking=deep_thinking,
+
         ):
 
             result += str(chunk)
@@ -299,21 +351,29 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
 
                 return "❌ GROQ_API_KEY topilmadi."
 
-            # GPT-OSS 120B text-only model.
-            # Image input bu model orqali ishlatilmaydi.
+            # Hozircha rasmni alohida vision modelga
+            # yubormasdan foydalanuvchi savolini qayta ishlaymiz.
+
+            prompt = f"""
+Foydalanuvchi rasm yukladi.
+
+Foydalanuvchining savoli:
+{user_prompt}
+
+Rasm asosida javob berish kerak.
+Agar rasm mazmunini ko‘rish imkoniyati bo‘lmasa,
+buni ochiq ayt.
+"""
 
             return self.chat(
-                user_prompt=(
-                    f"Foydalanuvchi rasm haqida so‘radi: "
-                    f"{user_prompt}"
-                )
+                user_prompt=prompt
             )
 
         except Exception as e:
 
             return (
-                f"❌ Rasmni tahlil qilishda xato: "
-                f"{str(e)}"
+                "❌ Rasmni tahlil qilishda xato: "
+                + str(e)
             )
 
     # ======================================================
@@ -332,9 +392,9 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
             api_url = None
             api_key = None
 
-            # ==============================================
+            # ==================================================
             # STREAMLIT SECRETS
-            # ==============================================
+            # ==================================================
 
             try:
 
@@ -351,11 +411,12 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
                     ]
 
             except Exception:
+
                 pass
 
-            # ==============================================
+            # ==================================================
             # ENVIRONMENT VARIABLES
-            # ==============================================
+            # ==================================================
 
             if not api_url:
 
@@ -369,18 +430,21 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
                     "IMAGE_API_KEY"
                 )
 
-            # ==============================================
-            # NO IMAGE API
-            # ==============================================
+            # ==================================================
+            # API URL BO‘LMASA
+            # ==================================================
 
             if not api_url:
+
                 return None
 
-            # ==============================================
+            # ==================================================
             # HEADERS
-            # ==============================================
+            # ==================================================
 
-            headers = {}
+            headers = {
+                "Content-Type": "application/json"
+            }
 
             if api_key:
 
@@ -388,13 +452,9 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
                     f"Bearer {api_key}"
                 )
 
-            headers["Content-Type"] = (
-                "application/json"
-            )
-
-            # ==============================================
+            # ==================================================
             # PAYLOAD
-            # ==============================================
+            # ==================================================
 
             payload = {
 
@@ -407,9 +467,9 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
                 ),
             }
 
-            # ==============================================
+            # ==================================================
             # REQUEST
-            # ==============================================
+            # ==================================================
 
             response = requests.post(
 
@@ -424,9 +484,9 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
 
             response.raise_for_status()
 
-            # ==============================================
-            # DIRECT IMAGE RESPONSE
-            # ==============================================
+            # ==================================================
+            # DIRECT IMAGE
+            # ==================================================
 
             content_type = response.headers.get(
                 "content-type",
@@ -437,13 +497,15 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
 
                 return response.content
 
-            # ==============================================
+            # ==================================================
             # JSON RESPONSE
-            # ==============================================
+            # ==================================================
 
             data = response.json()
 
-            # Base64 image
+            # ==================================================
+            # BASE64 IMAGE
+            # ==================================================
 
             for key in [
                 "image",
@@ -457,11 +519,19 @@ Faqat kerakli yakuniy javob va tushuntirishni ber.
 
                     if isinstance(value, str):
 
-                        return base64.b64decode(
-                            value
-                        )
+                        try:
 
-            # Image URL
+                            return base64.b64decode(
+                                value
+                            )
+
+                        except Exception:
+
+                            pass
+
+            # ==================================================
+            # IMAGE URL
+            # ==================================================
 
             for key in [
                 "url",

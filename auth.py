@@ -1,271 +1,150 @@
 """
 ============================================================
-EduMindAI Enterprise v3.0
-Authentication Manager
+EduMindAI Enterprise
+Authentication System
 ============================================================
 """
 
-import uuid
-import bcrypt
+import hashlib
 import streamlit as st
-
 from database import db
 
 
-class AuthManager:
+class Auth:
 
     def __init__(self):
-        pass
+        self._init_session()
 
-    # =====================================================
-    # PASSWORD
-    # =====================================================
+    # ======================================================
+    # SESSION
+    # ======================================================
 
-    def hash_password(self, password: str) -> str:
-        hashed = bcrypt.hashpw(
-            password.encode("utf-8"),
-            bcrypt.gensalt()
-        )
-        return hashed.decode("utf-8")
+    def _init_session(self):
 
-    # =====================================================
+        if "logged_in" not in st.session_state:
+            st.session_state.logged_in = False
 
-    def verify_password(
-        self,
-        password: str,
-        hashed: str
-    ) -> bool:
+        if "user_id" not in st.session_state:
+            st.session_state.user_id = None
 
-        return bcrypt.checkpw(
-            password.encode("utf-8"),
-            hashed.encode("utf-8")
-        )
+        if "username" not in st.session_state:
+            st.session_state.username = "Guest"
 
-    # =====================================================
-    # USER REGISTER
-    # =====================================================
+        if "plan" not in st.session_state:
+            st.session_state.plan = "Free"
 
-    def register(
-        self,
-        username,
-        email,
-        password
-    ):
+    # ======================================================
+    # PASSWORD HASH
+    # ======================================================
 
-        if db.username_exists(username):
-            return False, "Bu username band."
+    def hash_password(self, password):
 
-        if db.email_exists(email):
-            return False, "Bu email allaqachon mavjud."
+        return hashlib.sha256(
+            password.encode("utf-8")
+        ).hexdigest()
 
-        user_id = str(uuid.uuid4())
+    # ======================================================
+    # REGISTER
+    # ======================================================
 
-        password = self.hash_password(password)
+    def register(self, username, password):
 
-        db.create_user(
-            user_id=user_id,
-            username=username,
-            email=email,
-            password=password
-        )
+        username = username.strip()
 
-        db.create_settings(user_id)
+        if not username:
+            return False, "Username kiriting."
 
-        db.create_statistics(user_id)
+        if not password:
+            return False, "Password kiriting."
 
-        return True, "Ro'yxatdan o'tish muvaffaqiyatli."
+        if len(username) < 3:
+            return False, "Username kamida 3 ta belgidan iborat bo‘lsin."
 
-    # =====================================================
-    # USER LOGIN
-    # =====================================================
+        if len(password) < 6:
+            return False, "Password kamida 6 ta belgidan iborat bo‘lsin."
 
-    def login(
-        self,
-        username,
-        password
-    ):
+        try:
 
-        user = db.get_user(username)
+            password_hash = self.hash_password(password)
 
-        if user is None:
-            return False, "Foydalanuvchi topilmadi."
+            result = db.create_user(
+                username,
+                password_hash
+            )
 
-        if not self.verify_password(
-            password,
-            user["password"]
-        ):
-            return False, "Parol noto'g'ri."
+            if result:
 
-        st.session_state["logged_in"] = True
+                return True, "Account muvaffaqiyatli yaratildi."
 
-        st.session_state["user_id"] = user["user_id"]
+            return False, "Bu username allaqachon mavjud."
 
-        st.session_state["username"] = user["username"]
+        except Exception as e:
 
-        st.session_state["plan"] = user["plan"]
+            return False, f"Register xatosi: {e}"
 
-        return True, "Kirish muvaffaqiyatli."
-        # =====================================================
+    # ======================================================
+    # LOGIN
+    # ======================================================
+
+    def login(self, username, password):
+
+        username = username.strip()
+
+        if not username or not password:
+
+            return False, "Username va password kiriting."
+
+        try:
+
+            password_hash = self.hash_password(password)
+
+            user = db.authenticate_user(
+                username,
+                password_hash
+            )
+
+            if not user:
+
+                return False, "Username yoki password noto‘g‘ri."
+
+            st.session_state.logged_in = True
+
+            st.session_state.user_id = user["id"]
+
+            st.session_state.username = user["username"]
+
+            st.session_state.plan = user.get(
+                "plan",
+                "Free"
+            )
+
+            return True, "Login muvaffaqiyatli."
+
+        except Exception as e:
+
+            return False, f"Login xatosi: {e}"
+
+    # ======================================================
     # LOGOUT
-    # =====================================================
+    # ======================================================
 
     def logout(self):
 
-        keys = [
-            "logged_in",
-            "user_id",
-            "username",
-            "plan"
-        ]
+        st.session_state.logged_in = False
 
-        for key in keys:
-            if key in st.session_state:
-                del st.session_state[key]
+        st.session_state.user_id = None
 
-    # =====================================================
-    # PROFILE
-    # =====================================================
+        st.session_state.username = "Guest"
 
-    def current_user(self):
+        st.session_state.plan = "Free"
 
-        if "user_id" not in st.session_state:
-            return None
+        st.session_state.messages = []
 
-        return db.get_user_by_id(
-            st.session_state["user_id"]
-        )
+        st.rerun()
 
-    # =====================================================
-    # CHANGE PASSWORD
-    # =====================================================
-
-    def change_password(
-        self,
-        user_id,
-        old_password,
-        new_password
-    ):
-
-        user = db.get_user_by_id(user_id)
-
-        if user is None:
-            return False, "Foydalanuvchi topilmadi."
-
-        if not self.verify_password(
-            old_password,
-            user["password"]
-        ):
-            return False, "Eski parol noto'g'ri."
-
-        hashed = self.hash_password(
-            new_password
-        )
-
-        db.update_password(
-            user_id,
-            hashed
-        )
-
-        return True, "Parol yangilandi."
-
-    # =====================================================
-    # CHANGE EMAIL
-    # =====================================================
-
-    def change_email(
-        self,
-        user_id,
-        email
-    ):
-
-        if db.email_exists(email):
-            return False, "Bu email mavjud."
-
-        db.update_email(
-            user_id,
-            email
-        )
-
-        return True, "Email yangilandi."
-
-    # =====================================================
-    # CHANGE AVATAR
-    # =====================================================
-
-    def change_avatar(
-        self,
-        user_id,
-        avatar
-    ):
-
-        db.update_avatar(
-            user_id,
-            avatar
-        )
-
-        return True
-
-    # =====================================================
-    # CHANGE PLAN
-    # =====================================================
-
-    def change_plan(
-        self,
-        user_id,
-        plan
-    ):
-
-        db.update_plan(
-            user_id,
-            plan
-        )
-
-        st.session_state["plan"] = plan
-
-        return True
-        # =====================================================
-    # DELETE ACCOUNT
-    # =====================================================
-
-    def delete_account(
-        self,
-        user_id
-    ):
-
-        user = db.get_user_by_id(user_id)
-
-        if user is None:
-            return False, "Foydalanuvchi topilmadi."
-
-        db.delete_user(user_id)
-
-        self.logout()
-
-        return True, "Account o'chirildi."
-
-    # =====================================================
-    # ADMIN
-    # =====================================================
-
-    def is_admin(self):
-
-        if "username" not in st.session_state:
-            return False
-
-        admin_users = [
-            "admin",
-            "Imronbek",
-            "imronbek"
-        ]
-
-        return (
-            st.session_state["username"]
-            in admin_users
-        )
-
-    # =====================================================
-    # LOGIN CHECK
-    # =====================================================
+    # ======================================================
+    # CHECK LOGIN
+    # ======================================================
 
     def is_logged_in(self):
 
@@ -274,69 +153,136 @@ class AuthManager:
             False
         )
 
-    # =====================================================
-    # REQUIRE LOGIN
-    # =====================================================
+    # ======================================================
+    # LOGIN PAGE
+    # ======================================================
 
-    def require_login(self):
+    def show_auth_page(self):
 
-        if not self.is_logged_in():
+        st.markdown(
+            """
+            <div style="
+                max-width:600px;
+                margin:auto;
+                text-align:center;
+                padding-top:40px;
+            ">
 
-            st.warning(
-                "Avval tizimga kiring."
+            <h1>🧠 EduMindAI</h1>
+
+            <p>
+            AI Learning Assistant
+            </p>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        tab1, tab2 = st.tabs(
+            [
+                "🔐 Login",
+                "📝 Register"
+            ]
+        )
+
+        # ==================================================
+        # LOGIN
+        # ==================================================
+
+        with tab1:
+
+            st.subheader("Welcome back!")
+
+            username = st.text_input(
+                "Username",
+                key="login_username"
             )
 
-            st.stop()
+            password = st.text_input(
+                "Password",
+                type="password",
+                key="login_password"
+            )
 
-    # =====================================================
-    # USER PLAN
-    # =====================================================
+            if st.button(
+                "🔐 Login",
+                use_container_width=True
+            ):
 
-    def current_plan(self):
+                success, message = self.login(
+                    username,
+                    password
+                )
 
-        return st.session_state.get(
-            "plan",
-            "Free"
-        )
+                if success:
 
-    # =====================================================
-    # PREMIUM CHECK
-    # =====================================================
+                    st.success(message)
 
-    def is_premium(self):
+                    st.rerun()
 
-        return self.current_plan() in [
+                else:
 
-            "Pro",
+                    st.error(message)
 
-            "Enterprise"
+        # ==================================================
+        # REGISTER
+        # ==================================================
 
-        ]
+        with tab2:
 
-    # =====================================================
-    # ENTERPRISE CHECK
-    # =====================================================
+            st.subheader("Create your account")
 
-    def is_enterprise(self):
+            username = st.text_input(
+                "Username",
+                key="register_username"
+            )
 
-        return self.current_plan() == "Enterprise"
+            password = st.text_input(
+                "Password",
+                type="password",
+                key="register_password"
+            )
 
-    # =====================================================
-    # USER STATISTICS
-    # =====================================================
+            confirm_password = st.text_input(
+                "Confirm Password",
+                type="password",
+                key="register_confirm_password"
+            )
 
-    def statistics(self):
+            if st.button(
+                "📝 Create Account",
+                use_container_width=True
+            ):
 
-        if "user_id" not in st.session_state:
-            return None
+                if password != confirm_password:
 
-        return db.get_statistics(
-            st.session_state["user_id"]
-        )
+                    st.error(
+                        "Passwordlar bir xil emas."
+                    )
+
+                else:
+
+                    success, message = self.register(
+                        username,
+                        password
+                    )
+
+                    if success:
+
+                        st.success(message)
+
+                        st.info(
+                            "Endi Login bo‘limidan kiring."
+                        )
+
+                    else:
+
+                        st.error(message)
 
 
-# =====================================================
-# AUTH OBJECT
-# =====================================================
+# ==========================================================
+# GLOBAL AUTH INSTANCE
+# ==========================================================
 
-auth = AuthManager()
+auth = Auth()

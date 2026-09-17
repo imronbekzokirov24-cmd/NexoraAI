@@ -1,7 +1,7 @@
 """
 ============================================================
-EduMindAI Enterprise v3.6
-Google Login + AI Chat + Database + PDF AI (Fixed)
+EduMindAI Enterprise v3.7
+Google Login + AI Chat + Database + PDF AI (Fully Fixed)
 ============================================================
 """
 
@@ -37,7 +37,7 @@ defaults = {
     "plan": "Free",
     "messages": [],
     "history_loaded": False,
-    "pdf_context": "",  # PDF matnini xotirada doimiy saqlash uchun
+    "pdf_context": "",  # PDF matnini xotirada saqlash uchun
 }
 
 for key, value in defaults.items():
@@ -132,13 +132,12 @@ with st.sidebar:
     st.markdown("---")
 
     # ======================================================
-    # PDF UPLOADER (TUZATILGAN VA BARQAROR QISM)
+    # PDF UPLOADER
     # ======================================================
     st.subheader("📄 PDF AI")
     uploaded_file = st.file_uploader("O'qish uchun PDF tanlang", type=["pdf"])
     
     if uploaded_file is not None:
-        # Fayl yangi yuklanganda yoki o'zgarganda o'qiymiz
         try:
             reader = PdfReader(uploaded_file)
             text_data = ""
@@ -147,7 +146,6 @@ with st.sidebar:
                 if text:
                     text_data += text + "\n"
             
-            # Matnni session_state ga yozamiz, shunda o'chib ketmaydi
             st.session_state.pdf_context = text_data
             st.success(f"PDF o'qildi! ({len(reader.pages)} sahifa)")
             
@@ -159,9 +157,8 @@ with st.sidebar:
         except Exception as e:
             st.error(f"PDF o'qishda xatolik: {e}")
 
-    # Agar PDF yuklangan bo'lsa holatini ko'rsatib turish
     if st.session_state.pdf_context:
-        st.info("✅ PDF xotirada saqlangan va AI ga ulab qo'yilgan.")
+        st.info("✅ PDF xotirada saqlangan va AIning diqqat markazida.")
 
     st.markdown("---")
 
@@ -208,7 +205,7 @@ with st.sidebar:
         except Exception:
             pass
         st.session_state.messages = []
-        st.session_state.pdf_context = ""  # PDF kontekstini ham tozalaymiz
+        st.session_state.pdf_context = ""
         st.rerun()
 
 
@@ -231,14 +228,22 @@ prompt = st.chat_input("EduMindAI bilan suhbatni boshlang yoki PDF haqida so'ran
 
 
 # ==========================================================
-# PROCESS MESSAGE
+# PROCESS MESSAGE (PDF CONTEXT FULLY INTEGRATED)
 # ==========================================================
 
 if prompt:
+    # PDF matni bor-yo'qligini tekshiramiz va AIga to'g'ridan-to'g'ri uzatamiz
+    pdf_text = st.session_state.get("pdf_context", "")
+    
+    if pdf_text:
+        ai_prompt = f"Quyidagi PDF hujjati matni asosida javob ber:\n\n{pdf_text}\n\nFoydalanuvchi savoli: {prompt}"
+    else:
+        ai_prompt = prompt
+
     st.session_state.messages.append(
         {
             "role": "user",
-            "content": prompt,
+            "content": prompt,  # Foydalanuvchiga ekraning o'zida oddiy savol ko'rinib turadi
         }
     )
     with st.chat_message("user"):
@@ -259,14 +264,11 @@ if prompt:
         else:
             history = None
 
-        # PDF matnini doimiy xotiradan olib AI ga uzatamiz
-        final_context = st.session_state.get("pdf_context", "")
-
         try:
             for chunk in ai.stream_chat(
-                user_prompt=prompt,
+                user_prompt=ai_prompt,  # PDF matni biriktirilgan prompt
                 history=history,
-                context=final_context,  # PDF matni shu yerga boradi
+                context="",
                 web_search="",
                 deep_thinking=deep_thinking,
             ):

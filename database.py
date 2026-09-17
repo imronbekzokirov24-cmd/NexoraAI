@@ -1,391 +1,245 @@
 """
 ============================================================
-EduMindAI Enterprise v3.0
-Database Manager
+EduMindAI Enterprise
+Database System
 ============================================================
 """
 
 import sqlite3
-from pathlib import Path
-from contextlib import closing
-
-from config import DATABASE_PATH
+import os
+from datetime import datetime
 
 
 class Database:
-    def __init__(self):
-        # Database papkasini yaratish
-        DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-        # SQLite ulanish
-        self.conn = sqlite3.connect(
-            DATABASE_PATH,
+    def __init__(self, db_name="edumindai.db"):
+
+        self.db_name = db_name
+
+        self._create_tables()
+
+    # ======================================================
+    # CONNECTION
+    # ======================================================
+
+    def _connect(self):
+
+        return sqlite3.connect(
+            self.db_name,
             check_same_thread=False
         )
 
-        self.conn.row_factory = sqlite3.Row
-
-        # Jadvallarni yaratish
-        self.create_tables()
-
-    # =====================================================
-    # DATABASE HELPERS
-    # =====================================================
-
-    def execute(self, query, params=()):
-        with closing(self.conn.cursor()) as cursor:
-            cursor.execute(query, params)
-            self.conn.commit()
-
-    def fetchone(self, query, params=()):
-        with closing(self.conn.cursor()) as cursor:
-            cursor.execute(query, params)
-            return cursor.fetchone()
-
-    def fetchall(self, query, params=()):
-        with closing(self.conn.cursor()) as cursor:
-            cursor.execute(query, params)
-            return cursor.fetchall()
-
-    # =====================================================
+    # ======================================================
     # CREATE TABLES
-    # =====================================================
+    # ======================================================
 
-    def create_tables(self):
-        self.create_users_table()
-        self.create_chat_table()
-        self.create_memory_table()
-        self.create_settings_table()
-        self.create_favorites_table()
-        self.create_statistics_table()
+    def _create_tables(self):
 
-    # =====================================================
-    # USERS
-    # =====================================================
+        conn = self._connect()
+        cursor = conn.cursor()
 
-    def create_users_table(self):
-        self.execute("""
-        CREATE TABLE IF NOT EXISTS users(
+        # ==================================================
+        # USERS
+        # ==================================================
 
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            user_id TEXT UNIQUE NOT NULL,
-
-            username TEXT UNIQUE NOT NULL,
-
-            email TEXT UNIQUE NOT NULL,
-
-            password TEXT NOT NULL,
-
-            plan TEXT DEFAULT 'Free',
-
-            avatar TEXT,
-
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
-        )
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                email TEXT DEFAULT '',
+                plan TEXT DEFAULT 'Free',
+                questions INTEGER DEFAULT 0,
+                pdfs INTEGER DEFAULT 0,
+                images INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
         """)
 
-    # =====================================================
-    # CHAT HISTORY
-    # =====================================================
+        # ==================================================
+        # CHAT HISTORY
+        # ==================================================
 
-    def create_chat_table(self):
-        self.execute("""
-        CREATE TABLE IF NOT EXISTS chat_history(
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            user_id TEXT NOT NULL,
-
-            role TEXT NOT NULL,
-
-            content TEXT NOT NULL,
-
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
-        )
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
         """)
 
-    # =====================================================
-    # MEMORY
-    # =====================================================
+        conn.commit()
+        conn.close()
 
-    def create_memory_table(self):
-        self.execute("""
-        CREATE TABLE IF NOT EXISTS memory(
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            user_id TEXT NOT NULL,
-
-            title TEXT,
-
-            content TEXT,
-
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
-        )
-        """)
-
-    # =====================================================
-    # SETTINGS
-    # =====================================================
-
-    def create_settings_table(self):
-        self.execute("""
-        CREATE TABLE IF NOT EXISTS settings(
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            user_id TEXT UNIQUE,
-
-            theme TEXT DEFAULT 'light',
-
-            language TEXT DEFAULT 'uz',
-
-            tts INTEGER DEFAULT 1,
-
-            web_search INTEGER DEFAULT 0
-
-        )
-        """)
-
-    # =====================================================
-    # FAVORITES
-    # =====================================================
-
-    def create_favorites_table(self):
-        self.execute("""
-        CREATE TABLE IF NOT EXISTS favorites(
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            user_id TEXT,
-
-            question TEXT,
-
-            answer TEXT,
-
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
-        )
-        """)
-
-    # =====================================================
-    # STATISTICS
-    # =====================================================
-
-    def create_statistics_table(self):
-        self.execute("""
-        CREATE TABLE IF NOT EXISTS statistics(
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            user_id TEXT UNIQUE,
-
-            questions INTEGER DEFAULT 0,
-
-            pdfs INTEGER DEFAULT 0,
-
-            images INTEGER DEFAULT 0,
-
-            voices INTEGER DEFAULT 0,
-
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
-        )
-        """)
-            # =====================================================
-    # USER FUNCTIONS
-    # =====================================================
+    # ======================================================
+    # CREATE USER
+    # ======================================================
 
     def create_user(
         self,
-        user_id,
         username,
-        email,
         password,
-        plan="Free"
+        email=""
     ):
 
-        self.execute(
-            """
-            INSERT INTO users(
-                user_id,
-                username,
-                email,
-                password,
-                plan
+        username = str(username).strip()
+        password = str(password).strip()
+        email = str(email).strip()
+
+        if not username or not password:
+
+            return False
+
+        conn = self._connect()
+        cursor = conn.cursor()
+
+        try:
+
+            cursor.execute(
+                """
+                INSERT INTO users
+                (
+                    username,
+                    password,
+                    email,
+                    plan,
+                    questions,
+                    pdfs,
+                    images,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    username,
+                    password,
+                    email,
+                    "Free",
+                    0,
+                    0,
+                    0,
+                    datetime.now().isoformat()
+                )
             )
-            VALUES(?,?,?,?,?)
-            """,
-            (
-                user_id,
-                username,
-                email,
-                password,
-                plan
-            )
-        )
 
-    # =====================================================
+            conn.commit()
 
-    def get_user(self, username):
+            return True
 
-        return self.fetchone(
-            """
-            SELECT *
-            FROM users
-            WHERE username=?
-            """,
-            (username,)
-        )
+        except sqlite3.IntegrityError:
 
-    # =====================================================
+            return False
 
-    def get_user_by_email(self, email):
+        finally:
 
-        return self.fetchone(
-            """
-            SELECT *
-            FROM users
-            WHERE email=?
-            """,
-            (email,)
-        )
+            conn.close()
 
-    # =====================================================
+    # ======================================================
+    # AUTHENTICATE USER
+    # ======================================================
 
-    def get_user_by_id(self, user_id):
-
-        return self.fetchone(
-            """
-            SELECT *
-            FROM users
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def get_all_users(self):
-
-        return self.fetchall(
-            """
-            SELECT *
-            FROM users
-            ORDER BY created_at DESC
-            """
-        )
-
-    # =====================================================
-
-    def username_exists(self, username):
-
-        return self.get_user(username) is not None
-
-    # =====================================================
-
-    def email_exists(self, email):
-
-        return self.get_user_by_email(email) is not None
-
-    # =====================================================
-
-    def update_password(
+    def authenticate_user(
         self,
-        user_id,
+        username,
         password
     ):
 
-        self.execute(
+        conn = self._connect()
+        conn.row_factory = sqlite3.Row
+
+        cursor = conn.cursor()
+
+        cursor.execute(
             """
-            UPDATE users
-            SET password=?
-            WHERE user_id=?
+            SELECT *
+            FROM users
+            WHERE username = ?
+            AND password = ?
             """,
             (
-                password,
-                user_id
+                str(username).strip(),
+                str(password).strip()
             )
         )
 
-    # =====================================================
+        user = cursor.fetchone()
 
-    def update_email(
-        self,
-        user_id,
-        email
-    ):
+        conn.close()
 
-        self.execute(
+        if user:
+
+            return dict(user)
+
+        return None
+
+    # ======================================================
+    # GET USER
+    # ======================================================
+
+    def get_user(self, user_id):
+
+        conn = self._connect()
+        conn.row_factory = sqlite3.Row
+
+        cursor = conn.cursor()
+
+        cursor.execute(
             """
-            UPDATE users
-            SET email=?
-            WHERE user_id=?
-            """,
-            (
-                email,
-                user_id
-            )
-        )
-
-    # =====================================================
-
-    def update_avatar(
-        self,
-        user_id,
-        avatar
-    ):
-
-        self.execute(
-            """
-            UPDATE users
-            SET avatar=?
-            WHERE user_id=?
-            """,
-            (
-                avatar,
-                user_id
-            )
-        )
-
-    # =====================================================
-
-    def update_plan(
-        self,
-        user_id,
-        plan
-    ):
-
-        self.execute(
-            """
-            UPDATE users
-            SET plan=?
-            WHERE user_id=?
-            """,
-            (
-                plan,
-                user_id
-            )
-        )
-
-    # =====================================================
-
-    def delete_user(self, user_id):
-
-        self.execute(
-            """
-            DELETE FROM users
-            WHERE user_id=?
+            SELECT *
+            FROM users
+            WHERE id = ?
             """,
             (user_id,)
         )
-            # =====================================================
-    # CHAT FUNCTIONS
-    # =====================================================
+
+        user = cursor.fetchone()
+
+        conn.close()
+
+        if user:
+
+            return dict(user)
+
+        return None
+
+    # ======================================================
+    # GET USER BY USERNAME
+    # ======================================================
+
+    def get_user_by_username(
+        self,
+        username
+    ):
+
+        conn = self._connect()
+        conn.row_factory = sqlite3.Row
+
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE username = ?
+            """,
+            (str(username).strip(),)
+        )
+
+        user = cursor.fetchone()
+
+        conn.close()
+
+        if user:
+
+            return dict(user)
+
+        return None
+
+    # ======================================================
+    # SAVE CHAT
+    # ======================================================
 
     def save_chat(
         self,
@@ -394,440 +248,311 @@ class Database:
         content
     ):
 
-        self.execute(
+        if not content:
+            return False
+
+        conn = self._connect()
+        cursor = conn.cursor()
+
+        try:
+
+            cursor.execute(
+                """
+                INSERT INTO chats
+                (
+                    user_id,
+                    role,
+                    content,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    str(user_id),
+                    str(role),
+                    str(content),
+                    datetime.now().isoformat()
+                )
+            )
+
+            conn.commit()
+
+            return True
+
+        except Exception:
+
+            return False
+
+        finally:
+
+            conn.close()
+
+    # ======================================================
+    # LOAD CHAT
+    # ======================================================
+
+    def load_chat(
+        self,
+        user_id
+    ):
+
+        conn = self._connect()
+        conn.row_factory = sqlite3.Row
+
+        cursor = conn.cursor()
+
+        cursor.execute(
             """
-            INSERT INTO chat_history(
+            SELECT
+                id,
                 user_id,
                 role,
-                content
-            )
-            VALUES(?,?,?)
-            """,
-            (
-                user_id,
-                role,
-                content
-            )
-        )
-
-    # =====================================================
-
-    def get_chat_history(self, user_id):
-
-        return self.fetchall(
-            """
-            SELECT *
-            FROM chat_history
-            WHERE user_id=?
+                content,
+                created_at
+            FROM chats
+            WHERE user_id = ?
             ORDER BY id ASC
             """,
-            (user_id,)
+            (str(user_id),)
         )
 
-    # =====================================================
+        rows = cursor.fetchall()
 
-    def clear_chat(self, user_id):
+        conn.close()
 
-        self.execute(
-            """
-            DELETE FROM chat_history
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
+        return [
+            dict(row)
+            for row in rows
+        ]
 
-    # =====================================================
+    # ======================================================
+    # CLEAR CHAT
+    # ======================================================
 
-    def delete_chat_message(self, message_id):
-
-        self.execute(
-            """
-            DELETE FROM chat_history
-            WHERE id=?
-            """,
-            (message_id,)
-        )
-
-    # =====================================================
-    # MEMORY FUNCTIONS
-    # =====================================================
-
-    def save_memory(
+    def clear_chat(
         self,
-        user_id,
-        title,
-        content
+        user_id
     ):
 
-        self.execute(
+        conn = self._connect()
+        cursor = conn.cursor()
+
+        cursor.execute(
             """
-            INSERT INTO memory(
-                user_id,
-                title,
-                content
+            DELETE FROM chats
+            WHERE user_id = ?
+            """,
+            (str(user_id),)
+        )
+
+        conn.commit()
+        conn.close()
+
+        return True
+
+    # ======================================================
+    # INCREASE QUESTIONS
+    # ======================================================
+
+    def increase_questions(
+        self,
+        user_id
+    ):
+
+        return self._increase_stat(
+            user_id,
+            "questions"
+        )
+
+    # ======================================================
+    # INCREASE PDFS
+    # ======================================================
+
+    def increase_pdfs(
+        self,
+        user_id
+    ):
+
+        return self._increase_stat(
+            user_id,
+            "pdfs"
+        )
+
+    # ======================================================
+    # INCREASE IMAGES
+    # ======================================================
+
+    def increase_images(
+        self,
+        user_id
+    ):
+
+        return self._increase_stat(
+            user_id,
+            "images"
+        )
+
+    # ======================================================
+    # INTERNAL STATISTICS UPDATE
+    # ======================================================
+
+    def _increase_stat(
+        self,
+        user_id,
+        column
+    ):
+
+        allowed_columns = [
+            "questions",
+            "pdfs",
+            "images"
+        ]
+
+        if column not in allowed_columns:
+
+            return False
+
+        conn = self._connect()
+        cursor = conn.cursor()
+
+        try:
+
+            query = f"""
+                UPDATE users
+                SET {column} = {column} + 1
+                WHERE id = ?
+            """
+
+            cursor.execute(
+                query,
+                (user_id,)
             )
-            VALUES(?,?,?)
+
+            conn.commit()
+
+            return True
+
+        except Exception:
+
+            return False
+
+        finally:
+
+            conn.close()
+
+    # ======================================================
+    # USER STATISTICS
+    # ======================================================
+
+    def get_statistics(
+        self,
+        user_id
+    ):
+
+        conn = self._connect()
+        conn.row_factory = sqlite3.Row
+
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                questions,
+                pdfs,
+                images
+            FROM users
+            WHERE id = ?
+            """,
+            (user_id,)
+        )
+
+        row = cursor.fetchone()
+
+        conn.close()
+
+        if not row:
+
+            return {
+                "questions": 0,
+                "pdfs": 0,
+                "images": 0
+            }
+
+        return {
+            "questions": row["questions"],
+            "pdfs": row["pdfs"],
+            "images": row["images"]
+        }
+
+    # ======================================================
+    # UPDATE PLAN
+    # ======================================================
+
+    def update_plan(
+        self,
+        user_id,
+        plan
+    ):
+
+        conn = self._connect()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET plan = ?
+            WHERE id = ?
             """,
             (
-                user_id,
-                title,
-                content
+                str(plan),
+                user_id
             )
         )
 
-    # =====================================================
+        conn.commit()
+        conn.close()
 
-    def get_memory(self, user_id):
+        return True
 
-        return self.fetchall(
+    # ======================================================
+    # GET ALL USERS
+    # ======================================================
+
+    def get_all_users(self):
+
+        conn = self._connect()
+        conn.row_factory = sqlite3.Row
+
+        cursor = conn.cursor()
+
+        cursor.execute(
             """
-            SELECT *
-            FROM memory
-            WHERE user_id=?
+            SELECT
+                id,
+                username,
+                email,
+                plan,
+                questions,
+                pdfs,
+                images,
+                created_at
+            FROM users
             ORDER BY id DESC
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def delete_memory(self, memory_id):
-
-        self.execute(
             """
-            DELETE FROM memory
-            WHERE id=?
-            """,
-            (memory_id,)
         )
 
-    # =====================================================
-    # FAVORITES
-    # =====================================================
+        rows = cursor.fetchall()
 
-    def add_favorite(
-        self,
-        user_id,
-        question,
-        answer
-    ):
+        conn.close()
 
-        self.execute(
-            """
-            INSERT INTO favorites(
-                user_id,
-                question,
-                answer
-            )
-            VALUES(?,?,?)
-            """,
-            (
-                user_id,
-                question,
-                answer
-            )
-        )
+        return [
+            dict(row)
+            for row in rows
+        ]
 
-    # =====================================================
 
-    def get_favorites(self, user_id):
+# ==========================================================
+# GLOBAL DATABASE INSTANCE
+# ==========================================================
 
-        return self.fetchall(
-            """
-            SELECT *
-            FROM favorites
-            WHERE user_id=?
-            ORDER BY id DESC
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def remove_favorite(self, favorite_id):
-
-        self.execute(
-            """
-            DELETE FROM favorites
-            WHERE id=?
-            """,
-            (favorite_id,)
-        )
-            # =====================================================
-    # SETTINGS
-    # =====================================================
-
-    def create_settings(self, user_id):
-
-        if self.fetchone(
-            "SELECT id FROM settings WHERE user_id=?",
-            (user_id,)
-        ):
-            return
-
-        self.execute(
-            """
-            INSERT INTO settings(
-                user_id,
-                theme,
-                language,
-                tts,
-                web_search
-            )
-            VALUES(?,?,?,?,?)
-            """,
-            (
-                user_id,
-                "light",
-                "uz",
-                1,
-                0
-            )
-        )
-
-    # =====================================================
-
-    def get_settings(self, user_id):
-
-        return self.fetchone(
-            """
-            SELECT *
-            FROM settings
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def update_settings(
-        self,
-        user_id,
-        theme,
-        language,
-        tts,
-        web_search
-    ):
-
-        self.execute(
-            """
-            UPDATE settings
-            SET
-                theme=?,
-                language=?,
-                tts=?,
-                web_search=?
-            WHERE user_id=?
-            """,
-            (
-                theme,
-                language,
-                tts,
-                web_search,
-                user_id
-            )
-        )
-
-    # =====================================================
-    # STATISTICS
-    # =====================================================
-
-    def create_statistics(self, user_id):
-
-        if self.fetchone(
-            "SELECT id FROM statistics WHERE user_id=?",
-            (user_id,)
-        ):
-            return
-
-        self.execute(
-            """
-            INSERT INTO statistics(user_id)
-            VALUES(?)
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def increment_questions(self, user_id):
-
-        self.execute(
-            """
-            UPDATE statistics
-            SET questions = questions + 1
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def increment_images(self, user_id):
-
-        self.execute(
-            """
-            UPDATE statistics
-            SET images = images + 1
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def increment_pdfs(self, user_id):
-
-        self.execute(
-            """
-            UPDATE statistics
-            SET pdfs = pdfs + 1
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def increment_voices(self, user_id):
-
-        self.execute(
-            """
-            UPDATE statistics
-            SET voices = voices + 1
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def get_statistics(self, user_id):
-
-        return self.fetchone(
-            """
-            SELECT *
-            FROM statistics
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-    # DATABASE
-    # =====================================================
-
-    def close(self):
-        self.conn.close()
-
-# =====================================================
-# SETTINGS
-# =====================================================
-
-    def create_settings(self, user_id):
-
-        self.execute(
-            """
-            INSERT OR IGNORE INTO settings(
-                user_id
-            )
-            VALUES(?)
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def get_settings(self, user_id):
-
-        return self.fetchone(
-            """
-            SELECT *
-            FROM settings
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-# =====================================================
-# STATISTICS
-# =====================================================
-
-    def create_statistics(self, user_id):
-
-        self.execute(
-            """
-            INSERT OR IGNORE INTO statistics(
-                user_id
-            )
-            VALUES(?)
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def get_statistics(self, user_id):
-
-        return self.fetchone(
-            """
-            SELECT *
-            FROM statistics
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def increase_questions(self, user_id):
-
-        self.execute(
-            """
-            UPDATE statistics
-            SET questions = questions + 1
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def increase_pdfs(self, user_id):
-
-        self.execute(
-            """
-            UPDATE statistics
-            SET pdfs = pdfs + 1
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def increase_images(self, user_id):
-
-        self.execute(
-            """
-            UPDATE statistics
-            SET images = images + 1
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-
-    # =====================================================
-
-    def increase_voices(self, user_id):
-
-        self.execute(
-            """
-            UPDATE statistics
-            SET voices = voices + 1
-            WHERE user_id=?
-            """,
-            (user_id,)
-        )
-        
 db = Database()

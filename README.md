@@ -1,2 +1,2 @@
 # NexoraAI
-"Barchasi birida sun'iy intellekt platformasi"
+"The best of the best AI"

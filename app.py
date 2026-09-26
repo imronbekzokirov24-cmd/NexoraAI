@@ -6,7 +6,6 @@ Groq + Auth0 + Chat History + Clipboard Image
 ============================================================
 """
 
-import base64
 import streamlit as st
 
 from ai_engine import ai
@@ -99,9 +98,7 @@ if not st.user.is_logged_in:
         unsafe_allow_html=True,
     )
 
-    col1, col2, col3 = st.columns(
-        [1, 2, 1]
-    )
+    col1, col2, col3 = st.columns([1, 2, 1])
 
     with col2:
 
@@ -109,7 +106,6 @@ if not st.user.is_logged_in:
             "🔐  Continue with Google / GitHub / Facebook / Email",
             use_container_width=True,
         ):
-
             st.login("auth0")
 
     st.stop()
@@ -145,14 +141,11 @@ html, body {
    ======================================================== */
 
 .main .block-container {
-
     max-width: 1250px;
-
     padding-top: 30px;
     padding-left: 45px;
     padding-right: 45px;
     padding-bottom: 100px;
-
 }
 
 
@@ -161,116 +154,76 @@ html, body {
    ======================================================== */
 
 [data-testid="stSidebar"] {
-
     background: #f8fbff !important;
-
     border-right: 1px solid #e4ebf4;
-
 }
 
 [data-testid="stSidebar"] > div:first-child {
-
     padding-top: 25px;
-
 }
 
 
 /* LOGO */
 
 .logo-title {
-
     font-size: 27px;
-
     font-weight: 750;
-
     color: #17233c;
-
 }
 
 .logo-subtitle {
-
     font-size: 13px;
-
     color: #8997aa;
-
     margin-top: 3px;
-
     margin-bottom: 28px;
-
 }
 
 
 /* SECTION */
 
 .sidebar-title {
-
     color: #718096;
-
     font-size: 11px;
-
     font-weight: 800;
-
     letter-spacing: 1.5px;
-
     margin-top: 10px;
-
     margin-bottom: 12px;
-
 }
 
 
 /* CHAT HISTORY */
 
 .history-empty {
-
     color: #9aa7b8;
-
     font-size: 14px;
-
     padding: 8px 3px 15px 3px;
-
 }
 
 
 /* SIDEBAR BUTTON */
 
 [data-testid="stSidebar"] .stButton > button {
-
     width: 100%;
-
     text-align: left;
-
     background: transparent !important;
-
     color: #334155 !important;
-
     border: 1px solid transparent !important;
-
     border-radius: 10px !important;
-
     padding: 10px 12px !important;
-
     margin-bottom: 3px;
-
 }
 
 [data-testid="stSidebar"] .stButton > button:hover {
-
     background: #eef5ff !important;
-
     border-color: #dbe8fa !important;
-
     color: #2563eb !important;
-
 }
 
 
 /* SELECTBOX */
 
 [data-testid="stSidebar"] [data-baseweb="select"] {
-
     background: #ffffff !important;
-
 }
 
 
@@ -279,53 +232,32 @@ html, body {
    ======================================================== */
 
 .brand {
-
     display: flex;
-
     align-items: center;
-
     gap: 12px;
-
     margin-bottom: 25px;
-
 }
 
 .brand-icon {
-
     width: 45px;
-
     height: 45px;
-
     border-radius: 14px;
-
     background: #eef5ff;
-
     display: flex;
-
     align-items: center;
-
     justify-content: center;
-
     font-size: 23px;
-
 }
 
 .brand-name {
-
     font-size: 25px;
-
     font-weight: 750;
-
     color: #17233c;
-
 }
 
 .brand-subtitle {
-
     color: #8997aa;
-
     font-size: 13px;
-
 }
 
 
@@ -334,20 +266,12 @@ html, body {
    ======================================================== */
 
 [data-testid="stChatMessage"] {
-
     background: #ffffff !important;
-
     border: 1px solid #e2e9f3 !important;
-
     border-radius: 16px !important;
-
     padding: 17px 20px !important;
-
     margin-bottom: 14px !important;
-
-    box-shadow:
-        0 3px 12px rgba(30, 60, 100, 0.04);
-
+    box-shadow: 0 3px 12px rgba(30, 60, 100, 0.04);
 }
 
 
@@ -356,9 +280,7 @@ html, body {
 [data-testid="stChatMessage"]:has(
     [data-testid="chatAvatarIcon-user"]
 ) {
-
     background: #f7faff !important;
-
 }
 
 
@@ -367,36 +289,23 @@ html, body {
    ======================================================== */
 
 [data-testid="stChatInput"] {
-
     background: #ffffff !important;
-
 }
 
 [data-testid="stChatInput"] > div {
-
     background: #ffffff !important;
-
     border: 1px solid #dce5f0 !important;
-
     border-radius: 16px !important;
-
-    box-shadow:
-        0 4px 16px rgba(30, 60, 100, 0.06) !important;
-
+    box-shadow: 0 4px 16px rgba(30, 60, 100, 0.06) !important;
 }
 
 [data-testid="stChatInput"] textarea {
-
     background: #ffffff !important;
-
     color: #17233c !important;
-
 }
 
 [data-testid="stChatInput"] textarea::placeholder {
-
     color: #94a3b8 !important;
-
 }
 
 
@@ -405,13 +314,9 @@ html, body {
    ======================================================== */
 
 [data-testid="stFileUploader"] {
-
     background: #ffffff !important;
-
     border: 1px solid #dfe7f2 !important;
-
     border-radius: 15px !important;
-
 }
 
 
@@ -420,35 +325,22 @@ html, body {
    ======================================================== */
 
 .stat-card {
-
     background: #ffffff;
-
     border: 1px solid #e2e9f3;
-
     border-radius: 14px;
-
     padding: 14px;
-
     margin-bottom: 9px;
-
 }
 
 .stat-title {
-
     color: #7c8aa0;
-
     font-size: 13px;
-
 }
 
 .stat-number {
-
     color: #17233c;
-
     font-size: 25px;
-
     font-weight: 750;
-
 }
 
 
@@ -457,59 +349,35 @@ html, body {
    ======================================================== */
 
 .welcome {
-
     text-align: center;
-
     padding-top: 100px;
-
     padding-bottom: 60px;
-
 }
 
 .welcome-icon {
-
     width: 70px;
-
     height: 70px;
-
     border-radius: 20px;
-
     background: #eef5ff;
-
     color: #2563eb;
-
     display: flex;
-
     align-items: center;
-
     justify-content: center;
-
     margin: auto;
-
     font-size: 25px;
-
     font-weight: 800;
-
 }
 
 .welcome-title {
-
     color: #17233c;
-
     font-size: 35px;
-
     font-weight: 750;
-
     margin-top: 18px;
-
 }
 
 .welcome-text {
-
     color: #8997aa;
-
     font-size: 15px;
-
 }
 
 
@@ -518,23 +386,16 @@ html, body {
    ======================================================== */
 
 ::-webkit-scrollbar {
-
     width: 7px;
-
 }
 
 ::-webkit-scrollbar-track {
-
     background: #ffffff;
-
 }
 
 ::-webkit-scrollbar-thumb {
-
     background: #d9e2ee;
-
     border-radius: 10px;
-
 }
 
 </style>
@@ -562,94 +423,10 @@ if "pasted_image" not in st.session_state:
 
 
 # ==========================================================
-# CLIPBOARD PASTE LISTENER
-# ==========================================================
-
-st.markdown("""
-<script>
-
-document.addEventListener(
-    "paste",
-    async function(event) {
-
-        const items =
-            event.clipboardData.items;
-
-        for (let i = 0; i < items.length; i++) {
-
-            const item = items[i];
-
-            if (item.type.startsWith("image/")) {
-
-                const file = item.getAsFile();
-
-                if (!file) {
-                    continue;
-                }
-
-                const reader =
-                    new FileReader();
-
-                reader.onload = function(e) {
-
-                    const imageData =
-                        e.target.result;
-
-                    const text =
-                        document.querySelector(
-                            'textarea'
-                        );
-
-                    if (text) {
-
-                        text.value =
-                            text.value;
-
-                        text.dispatchEvent(
-                            new Event(
-                                'input',
-                                {
-                                    bubbles: true
-                                }
-                            )
-                        );
-                    }
-
-                    window.parent.postMessage(
-                        {
-                            type:
-                                "edumindai_pasted_image",
-
-                            image:
-                                imageData
-                        },
-                        "*"
-                    );
-
-                };
-
-                reader.readAsDataURL(file);
-
-            }
-
-        }
-
-    }
-);
-
-</script>
-""", unsafe_allow_html=True)
-
-
-# ==========================================================
 # SIDEBAR
 # ==========================================================
 
 with st.sidebar:
-
-    # ------------------------------------------------------
-    # LOGO
-    # ------------------------------------------------------
 
     st.markdown("""
     <div class="logo-title">
@@ -662,15 +439,12 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 
-    # ------------------------------------------------------
     # CHAT HISTORY
-    # ------------------------------------------------------
 
     st.markdown(
         '<div class="sidebar-title">CHATLAR</div>',
         unsafe_allow_html=True,
     )
-
 
     if not st.session_state.chat_titles:
 
@@ -684,15 +458,11 @@ with st.sidebar:
     else:
 
         for i, title in enumerate(
-            reversed(
-                st.session_state.chat_titles
-            )
+            reversed(st.session_state.chat_titles)
         ):
 
             real_index = (
-                len(
-                    st.session_state.chat_titles
-                )
+                len(st.session_state.chat_titles)
                 - 1
                 - i
             )
@@ -703,25 +473,18 @@ with st.sidebar:
                 use_container_width=True,
             ):
 
-                st.session_state.selected_chat = (
-                    real_index
-                )
+                st.session_state.selected_chat = real_index
 
 
     st.markdown("---")
 
 
-    # ------------------------------------------------------
     # MODEL
-    # ------------------------------------------------------
 
     st.markdown(
-        '<div class="sidebar-title">'
-        'GROQ MODEL'
-        '</div>',
+        '<div class="sidebar-title">GROQ MODEL</div>',
         unsafe_allow_html=True,
     )
-
 
     selected_model = st.selectbox(
         "Model",
@@ -732,32 +495,23 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-
-    ai.set_model(
-        selected_model
-    )
+    ai.set_model(selected_model)
 
 
     st.markdown("---")
 
 
-    # ------------------------------------------------------
     # SETTINGS
-    # ------------------------------------------------------
 
     st.markdown(
-        '<div class="sidebar-title">'
-        'SETTINGS'
-        '</div>',
+        '<div class="sidebar-title">SETTINGS</div>',
         unsafe_allow_html=True,
     )
-
 
     deep_thinking = st.toggle(
         "🔬 Deep Thinking",
         value=False,
     )
-
 
     memory_enabled = st.toggle(
         "🧠 Chat Memory",
@@ -768,9 +522,7 @@ with st.sidebar:
     st.markdown("---")
 
 
-    # ------------------------------------------------------
     # USER
-    # ------------------------------------------------------
 
     user_name = "User"
 
@@ -817,24 +569,18 @@ with st.sidebar:
         "🚪 Log out",
         use_container_width=True,
     ):
-
         st.logout()
 
 
     st.markdown("---")
 
 
-    # ------------------------------------------------------
     # STATISTICS
-    # ------------------------------------------------------
 
     st.markdown(
-        '<div class="sidebar-title">'
-        'STATISTICS'
-        '</div>',
+        '<div class="sidebar-title">STATISTICS</div>',
         unsafe_allow_html=True,
     )
-
 
     st.markdown(
         f"""
@@ -869,9 +615,7 @@ with st.sidebar:
     st.markdown("---")
 
 
-    # ------------------------------------------------------
     # NEW CHAT
-    # ------------------------------------------------------
 
     if st.button(
         "➕ Yangi chat",
@@ -879,17 +623,13 @@ with st.sidebar:
     ):
 
         st.session_state.messages = []
-
         st.session_state.active_image = None
-
         st.session_state.pasted_image = None
 
         st.rerun()
 
 
-    # ------------------------------------------------------
     # CLEAR
-    # ------------------------------------------------------
 
     if st.button(
         "🗑️ Chatni tozalash",
@@ -897,13 +637,9 @@ with st.sidebar:
     ):
 
         st.session_state.messages = []
-
         st.session_state.chat_titles = []
-
         st.session_state.active_image = None
-
         st.session_state.pasted_image = None
-
         st.session_state.total_prompts = 0
 
         st.rerun()
@@ -963,64 +699,6 @@ if not st.session_state.messages:
 
 
 # ==========================================================
-# FILE / IMAGE UPLOAD
-# ==========================================================
-
-uploaded_file = st.file_uploader(
-    "📎 Rasm yoki fayl",
-    type=[
-        "png",
-        "jpg",
-        "jpeg",
-        "webp",
-        "pdf",
-        "txt",
-        "csv",
-        "json",
-    ],
-    label_visibility="collapsed",
-    key="main_file_uploader",
-)
-
-
-# ==========================================================
-# PROCESS UPLOADED FILE
-# ==========================================================
-
-if uploaded_file is not None:
-
-    file_type = uploaded_file.type or ""
-
-
-    # ------------------------------------------------------
-    # IMAGE
-    # ------------------------------------------------------
-
-    if file_type.startswith("image/"):
-
-        st.session_state.active_image = (
-            uploaded_file
-        )
-
-        st.image(
-            uploaded_file,
-            width=350,
-            caption="Yuklangan rasm",
-        )
-
-
-    # ------------------------------------------------------
-    # OTHER FILE
-    # ------------------------------------------------------
-
-    else:
-
-        st.info(
-            f"📎 Fayl tayyor: {uploaded_file.name}"
-        )
-
-
-# ==========================================================
 # CHAT DISPLAY
 # ==========================================================
 
@@ -1062,32 +740,69 @@ for message in st.session_state.messages:
 # CHAT INPUT
 # ==========================================================
 
-prompt = st.chat_input(
-    "Xabaringizni yozing yoki Ctrl+V bilan rasm qo‘ying..."
+chat_submission = st.chat_input(
+    "Xabaringizni yozing yoki rasmni Ctrl+V qiling...",
+    accept_file=True,
+    file_type=[
+        "png",
+        "jpg",
+        "jpeg",
+        "webp",
+        "pdf",
+        "txt",
+        "csv",
+        "json",
+    ],
+    key="groq_chat_input",
 )
+
+prompt = ""
+uploaded_chat_file = None
+
+if chat_submission is not None:
+
+    prompt = chat_submission.text.strip()
+
+    if chat_submission.files:
+        uploaded_chat_file = chat_submission.files[0]
 
 
 # ==========================================================
 # SEND MESSAGE
 # ==========================================================
 
-if prompt:
+if prompt or uploaded_chat_file:
 
     st.session_state.total_prompts += 1
 
 
-    # ------------------------------------------------------
+    # FILE / IMAGE
+
+    current_image = None
+    uploaded_file_type = ""
+
+    if uploaded_chat_file is not None:
+
+        uploaded_file_type = (
+            uploaded_chat_file.type or ""
+        )
+
+        if uploaded_file_type.startswith("image/"):
+            current_image = uploaded_chat_file
+
+
     # TITLE
-    # ------------------------------------------------------
 
     title = prompt.strip()
 
-    if len(title) > 30:
+    if not title and uploaded_chat_file is not None:
+        title = "📎 " + uploaded_chat_file.name
 
-        title = (
-            title[:30]
-            + "..."
-        )
+    if not title:
+        title = "Yangi chat"
+
+    if len(title) > 30:
+        title = title[:30] + "..."
 
 
     if not st.session_state.messages:
@@ -1097,23 +812,25 @@ if prompt:
         )
 
 
-    # ------------------------------------------------------
-    # IMAGE
-    # ------------------------------------------------------
+    # USER MESSAGE
 
-    current_image = (
-        st.session_state.active_image
-    )
+    user_content = prompt
 
+    if not user_content and uploaded_chat_file is not None:
 
-    # ------------------------------------------------------
-    # USER
-    # ------------------------------------------------------
+        if current_image:
+            user_content = "📷 Rasm yuborildi"
+
+        else:
+            user_content = (
+                f"📎 {uploaded_chat_file.name}"
+            )
+
 
     st.session_state.messages.append(
         {
             "role": "user",
-            "content": prompt,
+            "content": user_content,
             "image": current_image,
         }
     )
@@ -1128,12 +845,18 @@ if prompt:
                 width=350,
             )
 
-        st.markdown(prompt)
+        if prompt:
+
+            st.markdown(prompt)
+
+        elif uploaded_chat_file is not None:
+
+            st.markdown(
+                f"📎 **{uploaded_chat_file.name}**"
+            )
 
 
-    # ------------------------------------------------------
     # AI
-    # ------------------------------------------------------
 
     with st.chat_message("assistant"):
 
@@ -1142,11 +865,15 @@ if prompt:
         response = ""
 
 
-        # ==================================================
         # VISION
-        # ==================================================
 
         if current_image:
+
+            vision_prompt = (
+                prompt
+                if prompt
+                else "Bu rasmni batafsil tahlil qil."
+            )
 
             with st.spinner(
                 "🖼️ Rasm tahlil qilinmoqda..."
@@ -1154,7 +881,7 @@ if prompt:
 
                 response = ai.vision_chat(
                     image=current_image,
-                    user_prompt=prompt,
+                    user_prompt=vision_prompt,
                 )
 
             response_placeholder.markdown(
@@ -1162,12 +889,23 @@ if prompt:
             )
 
 
-            st.session_state.active_image = None
+        # OTHER FILE
+
+        elif uploaded_chat_file is not None:
+
+            response = (
+                f"📎 **{uploaded_chat_file.name}** "
+                "fayli qabul qilindi. "
+                "Hozircha bu chat oynasida rasm "
+                "tahlili faol."
+            )
+
+            response_placeholder.markdown(
+                response
+            )
 
 
-        # ==================================================
         # NORMAL CHAT
-        # ==================================================
 
         else:
 
@@ -1176,7 +914,6 @@ if prompt:
                 if memory_enabled
                 else None
             )
-
 
             for chunk in ai.stream_chat(
                 user_prompt=prompt,
@@ -1192,15 +929,12 @@ if prompt:
                     response + "▌"
                 )
 
-
             response_placeholder.markdown(
                 response
             )
 
 
-    # ------------------------------------------------------
     # SAVE
-    # ------------------------------------------------------
 
     st.session_state.messages.append(
         {

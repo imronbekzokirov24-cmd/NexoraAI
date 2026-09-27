@@ -1,14 +1,21 @@
-"""
-============================================================
-EduMindAI Enterprise
-App
-Groq + Auth0 + Chat History + Clipboard Image
-============================================================
-"""
-
+```python
+import os
 import streamlit as st
 
+# ==========================================================
+# OPENAI IMAGE API KEY
+# ==========================================================
+
+# Streamlit Secrets'dan OPENAI_API_KEY olish
+try:
+    if "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass
+
+
 from ai_engine import ai
+from image_generator import generate_image
 
 
 # ==========================================================
@@ -382,6 +389,32 @@ html, body {
 
 
 /* ========================================================
+   IMAGE GENERATOR
+   ======================================================== */
+
+.image-generator-box {
+    background: #ffffff;
+    border: 1px solid #e2e9f3;
+    border-radius: 20px;
+    padding: 25px;
+    margin-top: 10px;
+    box-shadow: 0 5px 20px rgba(30, 60, 100, 0.05);
+}
+
+.image-title {
+    color: #17233c;
+    font-size: 28px;
+    font-weight: 750;
+}
+
+.image-subtitle {
+    color: #8997aa;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+
+/* ========================================================
    SCROLLBAR
    ======================================================== */
 
@@ -420,6 +453,9 @@ if "active_image" not in st.session_state:
 
 if "pasted_image" not in st.session_state:
     st.session_state.pasted_image = None
+
+if "generated_images" not in st.session_state:
+    st.session_state.generated_images = []
 
 
 # ==========================================================
@@ -474,6 +510,32 @@ with st.sidebar:
             ):
 
                 st.session_state.selected_chat = real_index
+
+
+    st.markdown("---")
+
+
+    # IMAGE GENERATOR BUTTON
+
+    st.markdown(
+        '<div class="sidebar-title">AI TOOLS</div>',
+        unsafe_allow_html=True,
+    )
+
+    if st.button(
+        "🖼️ AI Image Generator",
+        use_container_width=True,
+    ):
+        st.session_state.page = "image"
+        st.rerun()
+
+
+    if st.button(
+        "💬 AI Chat",
+        use_container_width=True,
+    ):
+        st.session_state.page = "chat"
+        st.rerun()
 
 
     st.markdown("---")
@@ -607,6 +669,18 @@ with st.sidebar:
             </div>
 
         </div>
+
+        <div class="stat-card">
+
+            <div class="stat-title">
+                🖼️ Yaratilgan rasmlar
+            </div>
+
+            <div class="stat-number">
+                {len(st.session_state.generated_images)}
+            </div>
+
+        </div>
         """,
         unsafe_allow_html=True,
     )
@@ -625,6 +699,7 @@ with st.sidebar:
         st.session_state.messages = []
         st.session_state.active_image = None
         st.session_state.pasted_image = None
+        st.session_state.page = "chat"
 
         st.rerun()
 
@@ -646,8 +721,289 @@ with st.sidebar:
 
 
 # ==========================================================
-# TOP BAR
+# DEFAULT PAGE
 # ==========================================================
+
+if "page" not in st.session_state:
+    st.session_state.page = "chat"
+
+
+# ==========================================================
+# IMAGE GENERATOR PAGE
+# ==========================================================
+
+if st.session_state.page == "image":
+
+    st.markdown("""
+    <div class="brand">
+
+        <div class="brand-icon">
+            🎨
+        </div>
+
+        <div>
+
+            <div class="brand-name">
+                AI Image Generator
+            </div>
+
+            <div class="brand-subtitle">
+                Turn your ideas into high-quality images
+            </div>
+
+        </div>
+
+    </div>
+    """, unsafe_allow_html=True)
+
+
+    st.markdown("""
+    <div class="image-generator-box">
+
+        <div class="image-title">
+            🖼️ Create an image
+        </div>
+
+        <div class="image-subtitle">
+            Rasmni qanday xohlayotganingizni batafsil yozing.
+        </div>
+
+    </div>
+    """, unsafe_allow_html=True)
+
+
+    image_prompt = st.text_area(
+        "Prompt",
+        placeholder=(
+            "Masalan: A futuristic city at night, "
+            "cinematic lighting, realistic architecture, "
+            "rainy streets, ultra detailed, 4K..."
+        ),
+        height=150,
+        key="image_prompt",
+    )
+
+
+    col1, col2, col3 = st.columns(3)
+
+
+    with col1:
+
+        image_size = st.selectbox(
+            "📐 O‘lcham",
+            [
+                "1024x1024",
+                "1536x1024",
+                "1024x1536",
+            ],
+        )
+
+
+    with col2:
+
+        image_quality = st.selectbox(
+            "✨ Sifat",
+            [
+                "high",
+                "medium",
+                "low",
+            ],
+            index=0,
+        )
+
+
+    with col3:
+
+        image_style = st.selectbox(
+            "🎨 Uslub",
+            [
+                "Auto",
+                "Photorealistic",
+                "Cinematic",
+                "Anime",
+                "3D Render",
+                "Digital Art",
+                "Fantasy",
+                "Minimalist",
+            ],
+        )
+
+
+    # STYLE PROMPT
+
+    style_text = ""
+
+    if image_style == "Photorealistic":
+        style_text = (
+            "photorealistic, natural lighting, realistic textures, "
+            "high detail, professional photography"
+        )
+
+    elif image_style == "Cinematic":
+        style_text = (
+            "cinematic composition, dramatic lighting, "
+            "film still, atmospheric, professional color grading"
+        )
+
+    elif image_style == "Anime":
+        style_text = (
+            "high quality anime art, detailed character design, "
+            "beautiful background, polished illustration"
+        )
+
+    elif image_style == "3D Render":
+        style_text = (
+            "high quality 3D render, realistic materials, "
+            "detailed environment, studio quality"
+        )
+
+    elif image_style == "Digital Art":
+        style_text = (
+            "professional digital artwork, detailed composition, "
+            "polished digital painting"
+        )
+
+    elif image_style == "Fantasy":
+        style_text = (
+            "epic fantasy artwork, magical atmosphere, "
+            "detailed environment, cinematic lighting"
+        )
+
+    elif image_style == "Minimalist":
+        style_text = (
+            "clean minimalist design, simple composition, "
+            "balanced spacing, elegant visual style"
+        )
+
+
+    st.markdown("### 📝 Prompt")
+
+
+    if st.button(
+        "✨ CREATE IMAGE",
+        type="primary",
+        use_container_width=True,
+    ):
+
+        if not image_prompt.strip():
+
+            st.warning(
+                "Avval rasm qanday bo‘lishini yozing."
+            )
+
+        else:
+
+            final_prompt = image_prompt.strip()
+
+            if style_text:
+                final_prompt += ", " + style_text
+
+
+            try:
+
+                with st.spinner(
+                    "🎨 AI rasm yaratmoqda..."
+                ):
+
+                    image = generate_image(
+                        prompt=final_prompt,
+                        size=image_size,
+                        quality=image_quality,
+                    )
+
+
+                st.session_state.generated_images.append(
+                    {
+                        "prompt": image_prompt,
+                        "image": image,
+                    }
+                )
+
+                st.session_state.active_image = image
+
+
+                st.success(
+                    "✅ Rasm muvaffaqiyatli yaratildi!"
+                )
+
+
+                st.image(
+                    image,
+                    use_container_width=True,
+                )
+
+
+                image_bytes = None
+
+                try:
+
+                    from io import BytesIO
+
+                    buffer = BytesIO()
+
+                    image.save(
+                        buffer,
+                        format="PNG",
+                    )
+
+                    image_bytes = buffer.getvalue()
+
+                except Exception:
+                    pass
+
+
+                if image_bytes:
+
+                    st.download_button(
+                        "⬇️ Rasmni yuklab olish",
+                        data=image_bytes,
+                        file_name="edumindai_generated.png",
+                        mime="image/png",
+                        use_container_width=True,
+                    )
+
+
+            except Exception as e:
+
+                st.error(
+                    "❌ Rasm yaratishda xatolik yuz berdi."
+                )
+
+                st.code(
+                    str(e)
+                )
+
+
+    # IMAGE HISTORY
+
+    if st.session_state.generated_images:
+
+        st.markdown("---")
+
+        st.markdown("### 🖼️ Image History")
+
+
+        for index, item in enumerate(
+            reversed(st.session_state.generated_images)
+        ):
+
+            with st.expander(
+                f"🎨 {item['prompt'][:70]}"
+            ):
+
+                st.image(
+                    item["image"],
+                    use_container_width=True,
+                )
+
+
+    st.stop()
+
+
+# ==========================================================
+# CHAT PAGE
+# ==========================================================
+
 
 st.markdown("""
 <div class="brand">
@@ -719,6 +1075,7 @@ for message in st.session_state.messages:
         None,
     )
 
+
     with st.chat_message(role):
 
         if image_data:
@@ -732,6 +1089,7 @@ for message in st.session_state.messages:
 
             except Exception:
                 pass
+
 
         st.markdown(content)
 
@@ -756,14 +1114,17 @@ chat_submission = st.chat_input(
     key="groq_chat_input",
 )
 
+
 prompt = ""
 uploaded_chat_file = None
+
 
 if chat_submission is not None:
 
     prompt = chat_submission.text.strip()
 
     if chat_submission.files:
+
         uploaded_chat_file = chat_submission.files[0]
 
 
@@ -781,13 +1142,16 @@ if prompt or uploaded_chat_file:
     current_image = None
     uploaded_file_type = ""
 
+
     if uploaded_chat_file is not None:
 
         uploaded_file_type = (
             uploaded_chat_file.type or ""
         )
 
+
         if uploaded_file_type.startswith("image/"):
+
             current_image = uploaded_chat_file
 
 
@@ -795,13 +1159,19 @@ if prompt or uploaded_chat_file:
 
     title = prompt.strip()
 
+
     if not title and uploaded_chat_file is not None:
+
         title = "📎 " + uploaded_chat_file.name
 
+
     if not title:
+
         title = "Yangi chat"
 
+
     if len(title) > 30:
+
         title = title[:30] + "..."
 
 
@@ -816,12 +1186,15 @@ if prompt or uploaded_chat_file:
 
     user_content = prompt
 
+
     if not user_content and uploaded_chat_file is not None:
 
         if current_image:
+
             user_content = "📷 Rasm yuborildi"
 
         else:
+
             user_content = (
                 f"📎 {uploaded_chat_file.name}"
             )
@@ -845,6 +1218,7 @@ if prompt or uploaded_chat_file:
                 width=350,
             )
 
+
         if prompt:
 
             st.markdown(prompt)
@@ -856,7 +1230,9 @@ if prompt or uploaded_chat_file:
             )
 
 
+    # ======================================================
     # AI
+    # ======================================================
 
     with st.chat_message("assistant"):
 
@@ -875,6 +1251,7 @@ if prompt or uploaded_chat_file:
                 else "Bu rasmni batafsil tahlil qil."
             )
 
+
             with st.spinner(
                 "🖼️ Rasm tahlil qilinmoqda..."
             ):
@@ -883,6 +1260,7 @@ if prompt or uploaded_chat_file:
                     image=current_image,
                     user_prompt=vision_prompt,
                 )
+
 
             response_placeholder.markdown(
                 response
@@ -900,6 +1278,7 @@ if prompt or uploaded_chat_file:
                 "tahlili faol."
             )
 
+
             response_placeholder.markdown(
                 response
             )
@@ -915,6 +1294,7 @@ if prompt or uploaded_chat_file:
                 else None
             )
 
+
             for chunk in ai.stream_chat(
                 user_prompt=prompt,
                 history=history,
@@ -928,6 +1308,7 @@ if prompt or uploaded_chat_file:
                 response_placeholder.markdown(
                     response + "▌"
                 )
+
 
             response_placeholder.markdown(
                 response
@@ -943,3 +1324,4 @@ if prompt or uploaded_chat_file:
             "image": None,
         }
     )
+```

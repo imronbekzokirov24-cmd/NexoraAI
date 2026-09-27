@@ -8,14 +8,12 @@ from PIL import Image
 
 
 def get_openai_api_key():
-    # Streamlit Secrets
     try:
         if "OPENAI_API_KEY" in st.secrets:
             return st.secrets["OPENAI_API_KEY"]
     except Exception:
         pass
 
-    # Environment variable
     return os.getenv("OPENAI_API_KEY")
 
 
@@ -35,7 +33,7 @@ def generate_image(
     client = OpenAI(api_key=api_key)
 
     response = client.images.generate(
-        model="gpt-image-2",
+        model="gpt-image-1",
         prompt=prompt,
         size=size,
         quality=quality,
@@ -43,19 +41,17 @@ def generate_image(
 
     if not response.data:
         raise ValueError(
-            "API rasm qaytarmadi."
+            "OpenAI API rasm qaytarmadi."
         )
 
     image_data = response.data[0].b64_json
 
     if not image_data:
         raise ValueError(
-            "Rasm ma'lumoti bo‘sh."
+            "API'dan rasm ma'lumoti kelmadi."
         )
 
-    image_bytes = base64.b64decode(
-        image_data
-    )
+    image_bytes = base64.b64decode(image_data)
 
     image = Image.open(
         BytesIO(image_bytes)

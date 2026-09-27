@@ -23,3 +23,12 @@ pillow
 groq
 huggingface_hub
 Pillow
+streamlit
+groq
+openai
+pillow
+torch
+diffusers
+transformers
+accelerate
+safetensors

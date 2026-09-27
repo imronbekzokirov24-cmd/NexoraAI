@@ -1,17 +1,8 @@
 import os
 import io
-import base64
 import streamlit as st
 
-from PIL import Image
-
 import ai_engine as ai
-
-try:
-    from image_generator import generate_image
-    IMAGE_GENERATOR_AVAILABLE = True
-except Exception:
-    IMAGE_GENERATOR_AVAILABLE = False
 
 
 # =========================================================
@@ -36,8 +27,25 @@ try:
 
     if "OPENAI_API_KEY" in st.secrets:
         os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+
 except Exception:
     pass
+
+
+# =========================================================
+# IMAGE GENERATOR IMPORT
+# =========================================================
+
+try:
+    from image_generator import generate_image
+
+    IMAGE_GENERATOR_AVAILABLE = True
+    IMAGE_GENERATOR_ERROR = None
+
+except Exception as e:
+
+    IMAGE_GENERATOR_AVAILABLE = False
+    IMAGE_GENERATOR_ERROR = repr(e)
 
 
 # =========================================================
@@ -84,14 +92,6 @@ st.markdown(
         margin-top: 30px;
     }
 
-    .image-card {
-        padding: 15px;
-        border-radius: 18px;
-        border: 1px solid #e5e5e5;
-        background: #ffffff;
-        margin-bottom: 15px;
-    }
-
     </style>
     """,
     unsafe_allow_html=True,
@@ -133,11 +133,19 @@ if not is_logged_in:
     st.markdown(
         """
         <div style="text-align:center; margin-top:100px;">
-            <div style="font-size:55px;">🤖</div>
-            <div class="nexora-title">NexoraAI</div>
+
+            <div style="font-size:55px;">
+                🤖
+            </div>
+
+            <div class="nexora-title">
+                NexoraAI
+            </div>
+
             <div class="nexora-subtitle">
                 AI Assistant • Chat • Vision • Image Generation
             </div>
+
         </div>
         """,
         unsafe_allow_html=True,
@@ -146,7 +154,9 @@ if not is_logged_in:
     st.markdown(
         """
         <div style="text-align:center;">
-            <p>Continue with your account to use NexoraAI.</p>
+            <p>
+                Continue with your account to use NexoraAI.
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -155,15 +165,21 @@ if not is_logged_in:
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col2:
+
         if st.button(
             "🔐 Sign in",
             use_container_width=True,
             type="primary",
         ):
+
             try:
                 st.login("auth0")
+
             except Exception as e:
-                st.error(f"Login xatosi: {e}")
+
+                st.error(
+                    f"Login xatosi: {e}"
+                )
 
     st.stop()
 
@@ -176,42 +192,57 @@ with st.sidebar:
 
     st.markdown("## 🤖 NexoraAI")
 
-    st.caption("AI Assistant")
+    st.caption(
+        "AI Assistant"
+    )
 
     st.divider()
 
     # -----------------------------------------------------
-    # PAGE BUTTONS
+    # CHAT
     # -----------------------------------------------------
 
     if st.button(
         "💬 Chat",
         use_container_width=True,
     ):
+
         st.session_state.page = "Chat"
         st.rerun()
+
+    # -----------------------------------------------------
+    # IMAGE GENERATOR
+    # -----------------------------------------------------
 
     if st.button(
         "🖼️ AI Image Generator",
         use_container_width=True,
     ):
+
         st.session_state.page = "Image Generator"
         st.rerun()
+
+    # -----------------------------------------------------
+    # HISTORY
+    # -----------------------------------------------------
 
     if st.button(
         "📚 Chat History",
         use_container_width=True,
     ):
+
         st.session_state.page = "History"
         st.rerun()
 
     st.divider()
 
-    # -----------------------------------------------------
+    # =====================================================
     # MODEL
-    # -----------------------------------------------------
+    # =====================================================
 
-    st.markdown("### 🧠 Model")
+    st.markdown(
+        "### 🧠 Model"
+    )
 
     model_options = [
         "openai/gpt-oss-120b",
@@ -221,11 +252,14 @@ with st.sidebar:
     selected_model = st.selectbox(
         "Model",
         model_options,
-        index=model_options.index(
-            st.session_state.selected_model
-        )
-        if st.session_state.selected_model in model_options
-        else 0,
+        index=(
+            model_options.index(
+                st.session_state.selected_model
+            )
+            if st.session_state.selected_model
+            in model_options
+            else 0
+        ),
     )
 
     st.session_state.selected_model = selected_model
@@ -235,9 +269,9 @@ with st.sidebar:
     except Exception:
         pass
 
-    # -----------------------------------------------------
+    # =====================================================
     # DEEP THINKING
-    # -----------------------------------------------------
+    # =====================================================
 
     st.session_state.deep_thinking = st.toggle(
         "🧠 Deep Thinking",
@@ -246,22 +280,24 @@ with st.sidebar:
 
     st.divider()
 
-    # -----------------------------------------------------
+    # =====================================================
     # NEW CHAT
-    # -----------------------------------------------------
+    # =====================================================
 
     if st.button(
         "➕ New Chat",
         use_container_width=True,
     ):
+
         st.session_state.messages = []
+
         st.rerun()
 
     st.divider()
 
-    # -----------------------------------------------------
-    # USER
-    # -----------------------------------------------------
+    # =====================================================
+    # ACCOUNT
+    # =====================================================
 
     try:
         user_name = st.user.name
@@ -273,21 +309,33 @@ with st.sidebar:
     except Exception:
         user_email = ""
 
-    st.markdown("### 👤 Account")
+    st.markdown(
+        "### 👤 Account"
+    )
 
-    st.write(user_name)
+    st.write(
+        user_name
+    )
 
     if user_email:
-        st.caption(user_email)
+
+        st.caption(
+            user_email
+        )
 
     if st.button(
         "🚪 Logout",
         use_container_width=True,
     ):
+
         try:
             st.logout()
+
         except Exception as e:
-            st.error(f"Logout xatosi: {e}")
+
+            st.error(
+                f"Logout xatosi: {e}"
+            )
 
     st.markdown(
         """
@@ -307,7 +355,10 @@ if st.session_state.page == "Chat":
 
     st.markdown(
         """
-        <div class="nexora-title">NexoraAI</div>
+        <div class="nexora-title">
+            NexoraAI
+        </div>
+
         <div class="nexora-subtitle">
             Ask anything. Upload images. Generate ideas.
         </div>
@@ -315,38 +366,54 @@ if st.session_state.page == "Chat":
         unsafe_allow_html=True,
     )
 
-    # -----------------------------------------------------
-    # DISPLAY CHAT HISTORY
-    # -----------------------------------------------------
+    # =====================================================
+    # DISPLAY MESSAGES
+    # =====================================================
 
     for message in st.session_state.messages:
 
-        role = message.get("role", "assistant")
-        content = message.get("content", "")
+        role = message.get(
+            "role",
+            "assistant",
+        )
+
+        content = message.get(
+            "content",
+            "",
+        )
 
         with st.chat_message(role):
 
             if content:
-                st.markdown(content)
+                st.markdown(
+                    content
+                )
 
-            if message.get("image") is not None:
+            if message.get(
+                "image"
+            ) is not None:
 
                 try:
+
                     st.image(
                         message["image"],
                         use_container_width=True,
                     )
+
                 except Exception:
                     pass
 
-            if message.get("file_name"):
+            if message.get(
+                "file_name"
+            ):
+
                 st.caption(
                     f"📎 {message['file_name']}"
                 )
 
-    # -----------------------------------------------------
+    # =====================================================
     # CHAT INPUT
-    # -----------------------------------------------------
+    # =====================================================
 
     prompt = st.chat_input(
         "Message NexoraAI...",
@@ -366,18 +433,18 @@ if st.session_state.page == "Chat":
     if prompt:
 
         # -------------------------------------------------
-        # GET TEXT
+        # TEXT
         # -------------------------------------------------
 
         try:
             user_text = prompt.text
         except Exception:
-            user_text = str(prompt)
+            user_text = ""
 
         user_text = user_text or ""
 
         # -------------------------------------------------
-        # GET FILES
+        # FILES
         # -------------------------------------------------
 
         try:
@@ -390,39 +457,66 @@ if st.session_state.page == "Chat":
 
         for uploaded_file in uploaded_files:
 
-            file_type = uploaded_file.type or ""
+            file_type = (
+                uploaded_file.type
+                or ""
+            )
 
-            if file_type.startswith("image/"):
+            if file_type.startswith(
+                "image/"
+            ):
+
                 image_file = uploaded_file
+
                 break
 
             else:
+
                 other_file = uploaded_file
 
         # -------------------------------------------------
-        # USER MESSAGE
+        # MESSAGE TEXT
         # -------------------------------------------------
 
         display_text = user_text
 
         if image_file:
+
             if display_text:
-                display_text += "\n\n📷 Image attached"
+
+                display_text += (
+                    "\n\n📷 Image attached"
+                )
+
             else:
-                display_text = "📷 Image attached"
+
+                display_text = (
+                    "📷 Image attached"
+                )
 
         elif other_file:
+
             if display_text:
+
                 display_text += (
                     f"\n\n📎 {other_file.name}"
                 )
+
             else:
+
                 display_text = (
                     f"📎 {other_file.name}"
                 )
 
         if not display_text:
-            display_text = "Please analyze the attached file."
+
+            display_text = (
+                "Please analyze the attached file."
+            )
+
+        # -------------------------------------------------
+        # SAVE USER MESSAGE
+        # -------------------------------------------------
 
         st.session_state.messages.append(
             {
@@ -441,20 +535,24 @@ if st.session_state.page == "Chat":
         )
 
         # -------------------------------------------------
-        # SHOW USER MESSAGE
+        # SHOW USER
         # -------------------------------------------------
 
         with st.chat_message("user"):
 
-            st.markdown(display_text)
+            st.markdown(
+                display_text
+            )
 
             if image_file:
 
                 try:
+
                     st.image(
                         image_file,
                         use_container_width=True,
                     )
+
                 except Exception:
                     pass
 
@@ -472,31 +570,34 @@ if st.session_state.page == "Chat":
 
                 if image_file:
 
-                    image_bytes = image_file.getvalue()
+                    image_bytes = (
+                        image_file.getvalue()
+                    )
 
                     try:
 
                         response = ai.vision_chat(
-                            user_prompt=user_text
-                            if user_text
-                            else "Analyze this image.",
+                            user_prompt=(
+                                user_text
+                                if user_text
+                                else "Analyze this image."
+                            ),
                             image_bytes=image_bytes,
-                            history=st.session_state.messages,
+                            history=(
+                                st.session_state.messages
+                            ),
                         )
 
                     except TypeError:
 
-                        try:
-
-                            response = ai.vision_chat(
+                        response = ai.vision_chat(
+                            (
                                 user_text
                                 if user_text
-                                else "Analyze this image.",
-                                image_bytes,
-                            )
-
-                        except Exception as vision_error:
-                            raise vision_error
+                                else "Analyze this image."
+                            ),
+                            image_bytes,
+                        )
 
                 # =========================================
                 # NORMAL CHAT
@@ -506,40 +607,47 @@ if st.session_state.page == "Chat":
 
                     response = ai.stream_chat(
                         user_prompt=user_text,
-                        history=st.session_state.messages,
-                        deep_thinking=st.session_state.deep_thinking,
+                        history=(
+                            st.session_state.messages
+                        ),
+                        deep_thinking=(
+                            st.session_state.deep_thinking
+                        ),
                     )
 
-                # -----------------------------------------
-                # HANDLE GENERATOR
-                # -----------------------------------------
+                # =========================================
+                # RESPONSE
+                # =========================================
 
-                if hasattr(response, "__iter__") and not isinstance(
-                    response, str
+                if (
+                    hasattr(
+                        response,
+                        "__iter__",
+                    )
+                    and not isinstance(
+                        response,
+                        str,
+                    )
                 ):
 
                     full_response = ""
 
-                    response_placeholder = st.empty()
+                    response_placeholder = (
+                        st.empty()
+                    )
 
-                    try:
+                    for chunk in response:
 
-                        for chunk in response:
+                        if chunk is None:
+                            continue
 
-                            if chunk is None:
-                                continue
+                        chunk_text = str(
+                            chunk
+                        )
 
-                            chunk_text = str(chunk)
-
-                            full_response += chunk_text
-
-                            response_placeholder.markdown(
-                                full_response
-                            )
-
-                    except TypeError:
-
-                        full_response = str(response)
+                        full_response += (
+                            chunk_text
+                        )
 
                         response_placeholder.markdown(
                             full_response
@@ -547,13 +655,17 @@ if st.session_state.page == "Chat":
 
                 else:
 
-                    full_response = str(response)
+                    full_response = str(
+                        response
+                    )
 
-                    st.markdown(full_response)
+                    st.markdown(
+                        full_response
+                    )
 
-                # -----------------------------------------
-                # SAVE RESPONSE
-                # -----------------------------------------
+                # =========================================
+                # SAVE AI RESPONSE
+                # =========================================
 
                 st.session_state.messages.append(
                     {
@@ -565,11 +677,13 @@ if st.session_state.page == "Chat":
             except Exception as e:
 
                 error_text = (
-                    f"❌ AI xatosi:\n\n"
+                    "❌ AI xatosi:\n\n"
                     f"`{str(e)}`"
                 )
 
-                st.error(error_text)
+                st.error(
+                    error_text
+                )
 
                 st.session_state.messages.append(
                     {
@@ -598,21 +712,34 @@ elif st.session_state.page == "Image Generator":
         unsafe_allow_html=True,
     )
 
+    # =====================================================
+    # CHECK IMPORT
+    # =====================================================
+
     if not IMAGE_GENERATOR_AVAILABLE:
 
         st.error(
-            "❌ image_generator.py topilmadi yoki import qilishda xato bo‘ldi."
+            "❌ image_generator.py yuklanmadi."
+        )
+
+        st.warning(
+            "Haqiqiy xato:"
+        )
+
+        st.code(
+            IMAGE_GENERATOR_ERROR
         )
 
         st.info(
-            "Loyihada image_generator.py fayli mavjudligini tekshiring."
+            "image_generator.py va requirements.txt "
+            "fayllarini tekshiring."
         )
 
     else:
 
-        # -------------------------------------------------
+        # =================================================
         # PROMPT
-        # -------------------------------------------------
+        # =================================================
 
         image_prompt = st.text_area(
             "🎨 What do you want to create?",
@@ -624,9 +751,9 @@ elif st.session_state.page == "Image Generator":
             height=140,
         )
 
-        # -------------------------------------------------
+        # =================================================
         # SETTINGS
-        # -------------------------------------------------
+        # =================================================
 
         col1, col2, col3 = st.columns(3)
 
@@ -670,9 +797,9 @@ elif st.session_state.page == "Image Generator":
 
         st.divider()
 
-        # -------------------------------------------------
-        # GENERATE BUTTON
-        # -------------------------------------------------
+        # =================================================
+        # GENERATE
+        # =================================================
 
         if st.button(
             "✨ Generate Image",
@@ -688,7 +815,9 @@ elif st.session_state.page == "Image Generator":
 
             else:
 
-                final_prompt = image_prompt.strip()
+                final_prompt = (
+                    image_prompt.strip()
+                )
 
                 if image_style != "Auto":
 
@@ -702,13 +831,21 @@ elif st.session_state.page == "Image Generator":
                         "🎨 AI rasm yaratyapti..."
                     ):
 
-                        generated_image = generate_image(
-                            prompt=final_prompt,
-                            size=image_size,
-                            quality=image_quality,
+                        generated_image = (
+                            generate_image(
+                                prompt=final_prompt,
+                                size=image_size,
+                                quality=image_quality,
+                            )
                         )
 
-                    if generated_image is not None:
+                    if generated_image is None:
+
+                        st.error(
+                            "❌ Rasm yaratilmadi."
+                        )
+
+                    else:
 
                         st.success(
                             "✅ Rasm tayyor!"
@@ -719,9 +856,9 @@ elif st.session_state.page == "Image Generator":
                             use_container_width=True,
                         )
 
-                        # ---------------------------------
-                        # SAVE IMAGE HISTORY
-                        # ---------------------------------
+                        # =================================
+                        # SAVE HISTORY
+                        # =================================
 
                         st.session_state.image_history.append(
                             {
@@ -730,11 +867,13 @@ elif st.session_state.page == "Image Generator":
                             }
                         )
 
-                        # ---------------------------------
+                        # =================================
                         # DOWNLOAD
-                        # ---------------------------------
+                        # =================================
 
-                        image_buffer = io.BytesIO()
+                        image_buffer = (
+                            io.BytesIO()
+                        )
 
                         generated_image.save(
                             image_buffer,
@@ -746,15 +885,11 @@ elif st.session_state.page == "Image Generator":
                         st.download_button(
                             label="⬇️ Download PNG",
                             data=image_buffer.getvalue(),
-                            file_name="nexoraai_generated.png",
+                            file_name=(
+                                "nexoraai_generated.png"
+                            ),
                             mime="image/png",
                             use_container_width=True,
-                        )
-
-                    else:
-
-                        st.error(
-                            "❌ Rasm yaratilmadi."
                         )
 
                 except Exception as e:
@@ -767,20 +902,20 @@ elif st.session_state.page == "Image Generator":
                         str(e)
                     )
 
-        # -------------------------------------------------
+        # =================================================
         # IMAGE HISTORY
-        # -------------------------------------------------
+        # =================================================
 
         if st.session_state.image_history:
 
             st.divider()
 
-            st.markdown("### 🕘 Generated Images")
+            st.markdown(
+                "### 🕘 Generated Images"
+            )
 
-            for index, item in enumerate(
-                reversed(
-                    st.session_state.image_history
-                )
+            for item in reversed(
+                st.session_state.image_history
             ):
 
                 with st.container():
@@ -822,9 +957,7 @@ elif st.session_state.page == "History":
 
     else:
 
-        for index, message in enumerate(
-            st.session_state.messages
-        ):
+        for message in st.session_state.messages:
 
             role = message.get(
                 "role",
@@ -849,6 +982,10 @@ elif st.session_state.page == "History":
                 )
 
             st.divider()
+
+    # =====================================================
+    # CLEAR HISTORY
+    # =====================================================
 
     if st.button(
         "🗑️ Clear History",

@@ -1,20 +1,18 @@
 import os
-import base64
-from io import BytesIO
-
 import streamlit as st
-from openai import OpenAI
-from PIL import Image
+from huggingface_hub import InferenceClient
 
 
-def get_openai_api_key():
+def get_hf_token():
+    # Streamlit Secrets
     try:
-        if "OPENAI_API_KEY" in st.secrets:
-            return st.secrets["OPENAI_API_KEY"]
+        if "HF_TOKEN" in st.secrets:
+            return st.secrets["HF_TOKEN"]
     except Exception:
         pass
 
-    return os.getenv("OPENAI_API_KEY")
+    # Environment variable
+    return os.getenv("HF_TOKEN")
 
 
 def generate_image(
@@ -22,40 +20,42 @@ def generate_image(
     size="1024x1024",
     quality="high",
 ):
-    api_key = get_openai_api_key()
+    token = get_hf_token()
 
-    if not api_key:
+    if not token:
         raise ValueError(
-            "OPENAI_API_KEY topilmadi. "
-            "Streamlit Secrets ichiga OPENAI_API_KEY qo‘shing."
+            "HF_TOKEN topilmadi. "
+            "Streamlit Secrets ichiga HF_TOKEN qo‘shing."
         )
 
-    client = OpenAI(api_key=api_key)
+    client = InferenceClient(
+        provider="auto",
+        api_key=token,
+    )
 
-    response = client.images.generate(
-        model="gpt-image-1",
+    # Sizning app.py dagi size qiymatini width/height ga aylantiramiz
+    sizes = {
+        "1024x1024": (1024, 1024),
+        "1536x1024": (1536, 1024),
+        "1024x1536": (1024, 1536),
+    }
+
+    width, height = sizes.get(
+        size,
+        (1024, 1024)
+    )
+
+    image = client.text_to_image(
         prompt=prompt,
-        size=size,
-        quality=quality,
+        model="black-forest-labs/FLUX.1-schnell",
+        width=width,
+        height=height,
     )
 
-    if not response.data:
+    if image is None:
         raise ValueError(
-            "OpenAI API rasm qaytarmadi."
+            "Hugging Face rasm qaytarmadi."
         )
-
-    image_data = response.data[0].b64_json
-
-    if not image_data:
-        raise ValueError(
-            "API'dan rasm ma'lumoti kelmadi."
-        )
-
-    image_bytes = base64.b64decode(image_data)
-
-    image = Image.open(
-        BytesIO(image_bytes)
-    )
 
     return image
 

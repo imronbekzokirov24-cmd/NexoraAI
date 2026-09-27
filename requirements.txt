@@ -21,3 +21,5 @@ streamlit
 openai
 pillow
 groq
+huggingface_hub
+Pillow

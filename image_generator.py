@@ -1,85 +1,76 @@
+import os
+import io
+import requests
 import streamlit as st
-import torch
-
-from diffusers import AutoPipelineForText2Image
+from PIL import Image
 
 
-MODEL_ID = "stabilityai/sd-turbo"
+def get_api_key():
+    try:
+        if "POLLINATIONS_API_KEY" in st.secrets:
+            return st.secrets["POLLINATIONS_API_KEY"]
+    except Exception:
+        pass
 
-
-@st.cache_resource
-def load_model():
-
-    if torch.cuda.is_available():
-
-        device = "cuda"
-        dtype = torch.float16
-
-    else:
-
-        device = "cpu"
-        dtype = torch.float32
-
-    pipe = AutoPipelineForText2Image.from_pretrained(
-        MODEL_ID,
-        torch_dtype=dtype,
-    )
-
-    pipe = pipe.to(device)
-
-    return pipe, device
+    return os.getenv("POLLINATIONS_API_KEY")
 
 
 def generate_image(
     prompt,
     size="1024x1024",
-    quality="high",
+    quality="high"
 ):
-
     if not prompt or not prompt.strip():
-        raise ValueError(
-            "Rasm uchun prompt yozing."
-        )
+        raise ValueError("Prompt yozing.")
 
-    pipe, device = load_model()
+    api_key = get_api_key()
+
+    if not api_key:
+        raise ValueError(
+            "POLLINATIONS_API_KEY topilmadi. "
+            "Streamlit Secrets ga API key qo‘shing."
+        )
 
     sizes = {
-        "1024x1024": (512, 512),
-        "1536x1024": (512, 384),
-        "1024x1536": (384, 512),
+        "1024x1024": (1024, 1024),
+        "1536x1024": (1536, 1024),
+        "1024x1536": (1024, 1536),
     }
 
-    width, height = sizes.get(
-        size,
-        (512, 512)
+    width, height = sizes.get(size, (1024, 1024))
+
+    url = "https://gen.pollinations.ai/image/" + requests.utils.quote(
+        prompt.strip()
     )
 
-    with torch.inference_mode():
+    params = {
+        "model": "flux",
+        "width": width,
+        "height": height,
+        "nologo": "true",
+    }
 
-        result = pipe(
-            prompt=prompt,
-            width=width,
-            height=height,
-            num_inference_steps=4,
-            guidance_scale=0.0,
-        )
+    headers = {
+        "Authorization": f"Bearer {api_key}"
+    }
 
-    if not result.images:
-        raise ValueError(
-            "AI rasm yaratmadi."
-        )
-
-    return result.images[0]
-
-
-def save_image(
-    image,
-    filename="generated_image.png",
-):
-
-    image.save(
-        filename,
-        format="PNG",
+    response = requests.get(
+        url,
+        params=params,
+        headers=headers,
+        timeout=180
     )
 
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Image API xatosi: {response.status_code}\n"
+            f"{response.text[:1000]}"
+        )
+
+    image = Image.open(io.BytesIO(response.content))
+    return image
+
+
+def save_image(image, filename="nexora_generated.png"):
+    image.save(filename, format="PNG")
     return filename

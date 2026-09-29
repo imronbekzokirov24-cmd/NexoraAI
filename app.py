@@ -22,10 +22,12 @@ st.set_page_config(
 
 IMAGE_GENERATOR_AVAILABLE = False
 IMAGE_GENERATOR_ERROR = None
+generate_image = None
 
 try:
     from image_generator import generate_image
     IMAGE_GENERATOR_AVAILABLE = True
+
 except Exception as e:
     generate_image = None
     IMAGE_GENERATOR_ERROR = str(e)
@@ -168,18 +170,21 @@ with st.sidebar:
         use_container_width=True,
     ):
         st.session_state.page = "Chat"
+        st.rerun()
 
     if st.button(
         "🎨 AI Image Generator",
         use_container_width=True,
     ):
         st.session_state.page = "Image Generator"
+        st.rerun()
 
     if st.button(
         "🕘 Chat History",
         use_container_width=True,
     ):
         st.session_state.page = "History"
+        st.rerun()
 
     st.divider()
 
@@ -195,10 +200,12 @@ with st.sidebar:
             "openai/gpt-oss-120b",
             "openai/gpt-oss-20b",
         ],
-        index=0
-        if st.session_state.selected_model
-        == "openai/gpt-oss-120b"
-        else 1,
+        index=(
+            0
+            if st.session_state.selected_model
+            == "openai/gpt-oss-120b"
+            else 1
+        ),
         label_visibility="collapsed",
     )
 
@@ -232,6 +239,8 @@ with st.sidebar:
     ):
 
         st.session_state.messages = []
+
+        st.session_state.page = "Chat"
 
         st.rerun()
 
@@ -273,6 +282,7 @@ with st.sidebar:
 
         try:
             st.logout()
+
         except Exception:
             pass
 
@@ -303,9 +313,13 @@ if st.session_state.page == "Chat":
             message["role"]
         ):
 
-            st.markdown(
-                message["content"]
+            content = message.get(
+                "content",
+                ""
             )
+
+            if content:
+                st.markdown(content)
 
             if message.get("image") is not None:
 
@@ -335,18 +349,46 @@ if st.session_state.page == "Chat":
 
     if user_input:
 
-        prompt = user_input.text
+        # ==================================================
+        # GET TEXT
+        # ==================================================
+
+        prompt = user_input.text or ""
+
+        # ==================================================
+        # GET FILE
+        # ==================================================
 
         uploaded_file = None
 
         try:
+
             uploaded_file = user_input.files
+
         except Exception:
+
             uploaded_file = None
 
-        # --------------------------------------------------
+        # ==================================================
+        # IF FILE LIST
+        # ==================================================
+
+        if isinstance(
+            uploaded_file,
+            list,
+        ):
+
+            if len(uploaded_file) > 0:
+
+                uploaded_file = uploaded_file[0]
+
+            else:
+
+                uploaded_file = None
+
+        # ==================================================
         # USER MESSAGE
-        # --------------------------------------------------
+        # ==================================================
 
         if prompt:
 
@@ -358,66 +400,81 @@ if st.session_state.page == "Chat":
             )
 
             with st.chat_message("user"):
+
                 st.markdown(prompt)
 
-        # --------------------------------------------------
+        # ==================================================
         # FILE / IMAGE
-        # --------------------------------------------------
+        # ==================================================
 
         file_data = None
 
-        if uploaded_file:
+        if uploaded_file is not None:
 
             try:
 
-                if isinstance(
+                file_name = getattr(
                     uploaded_file,
-                    list,
+                    "name",
+                    "",
+                )
+
+                file_type = getattr(
+                    uploaded_file,
+                    "type",
+                    "",
+                )
+
+                file_data = uploaded_file
+
+                # ------------------------------------------
+                # IMAGE
+                # ------------------------------------------
+
+                if (
+                    file_type
+                    and file_type.startswith("image/")
                 ):
 
-                    if len(uploaded_file) > 0:
-                        uploaded_file = uploaded_file[0]
+                    image_bytes = uploaded_file.getvalue()
 
-                if uploaded_file is not None:
-
-                    file_name = getattr(
-                        uploaded_file,
-                        "name",
-                        "",
+                    st.session_state.messages.append(
+                        {
+                            "role": "user",
+                            "content": f"📎 {file_name}",
+                            "image": image_bytes,
+                        }
                     )
 
-                    file_type = getattr(
-                        uploaded_file,
-                        "type",
-                        "",
-                    )
+                    with st.chat_message("user"):
 
-                    file_data = uploaded_file
-
-                    if file_type and file_type.startswith(
-                        "image/"
-                    ):
-
-                        image_bytes = uploaded_file.read()
-
-                        st.session_state.messages.append(
-                            {
-                                "role": "user",
-                                "content": f"📎 {file_name}",
-                                "image": image_bytes,
-                            }
+                        st.markdown(
+                            f"📎 **{file_name}**"
                         )
 
-                        with st.chat_message("user"):
+                        st.image(
+                            image_bytes,
+                            use_container_width=True,
+                        )
 
-                            st.markdown(
-                                f"📎 **{file_name}**"
-                            )
+                # ------------------------------------------
+                # OTHER FILE
+                # ------------------------------------------
 
-                            st.image(
-                                image_bytes,
-                                use_container_width=True,
-                            )
+                else:
+
+                    st.session_state.messages.append(
+                        {
+                            "role": "user",
+                            "content": f"📎 {file_name}",
+                        }
+                    )
+
+                    with st.chat_message("user"):
+
+                        st.markdown(
+                            f"📎 **{file_name}**"
+                        )
 
             except Exception as e:
 
@@ -425,9 +482,9 @@ if st.session_state.page == "Chat":
                     f"Faylni o‘qishda xato: {e}"
                 )
 
-        # --------------------------------------------------
+        # ==================================================
         # AI RESPONSE
-        # --------------------------------------------------
+        # ==================================================
 
         if prompt or file_data:
 
@@ -435,7 +492,10 @@ if st.session_state.page == "Chat":
 
                 try:
 
+                    # ======================================
                     # IMAGE VISION
+                    # ======================================
+
                     if (
                         file_data is not None
                         and getattr(
@@ -445,44 +505,63 @@ if st.session_state.page == "Chat":
                         ).startswith("image/")
                     ):
 
-                        image_bytes = file_data.getvalue()
+                        image_bytes = (
+                            file_data.getvalue()
+                        )
 
                         response = ai.vision_chat(
-                            user_prompt=prompt
-                            if prompt
-                            else "Analyze this image.",
+                            user_prompt=(
+                                prompt
+                                if prompt
+                                else
+                                "Analyze this image."
+                            ),
                             image_bytes=image_bytes,
                         )
 
+                        if response is None:
+
+                            response = (
+                                "AI javob qaytarmadi."
+                            )
+
+                        st.markdown(response)
+
+                    # ======================================
                     # NORMAL CHAT
+                    # ======================================
+
                     else:
 
-                        response = ai.stream_chat(
-                            user_prompt=prompt,
-                            history=st.session_state.messages,
-                            deep_thinking=st.session_state.deep_thinking,
+                        # Muhim:
+                        # stream_chat() generator qaytaradi.
+                        # Uni st.markdown()ga berish mumkin emas.
+                        # st.write_stream() kerak.
+
+                        response = st.write_stream(
+                            ai.stream_chat(
+                                user_prompt=prompt,
+                                history=(
+                                    st.session_state.messages[:-1]
+                                ),
+                                context="",
+                                web_search="",
+                                deep_thinking=(
+                                    st.session_state
+                                    .deep_thinking
+                                ),
+                            )
                         )
 
-                    # --------------------------------------------------
-                    # HANDLE RESPONSE
-                    # --------------------------------------------------
+                        if response is None:
 
-                    if response is None:
+                            response = (
+                                "AI javob qaytarmadi."
+                            )
 
-                        response = (
-                            "AI javob qaytarmadi."
-                        )
-
-                    elif not isinstance(
-                        response,
-                        str,
-                    ):
-
-                        response = str(
-                            response
-                        )
-
-                    st.markdown(response)
+                    # ======================================
+                    # SAVE RESPONSE
+                    # ======================================
 
                     st.session_state.messages.append(
                         {
@@ -627,9 +706,9 @@ elif st.session_state.page == "Image Generator":
                                 "AI rasm qaytarmadi."
                             )
 
-                        # ----------------------------------------------
+                        # ----------------------------------
                         # HISTORY
-                        # ----------------------------------------------
+                        # ----------------------------------
 
                         st.session_state.image_history.append(
                             {
@@ -638,9 +717,9 @@ elif st.session_state.page == "Image Generator":
                             }
                         )
 
-                        # ----------------------------------------------
+                        # ----------------------------------
                         # SHOW IMAGE
-                        # ----------------------------------------------
+                        # ----------------------------------
 
                         st.success(
                             "Rasm tayyor! 🎉"
@@ -652,9 +731,9 @@ elif st.session_state.page == "Image Generator":
                             use_container_width=True,
                         )
 
-                        # ----------------------------------------------
+                        # ----------------------------------
                         # DOWNLOAD
-                        # ----------------------------------------------
+                        # ----------------------------------
 
                         buffer = io.BytesIO()
 
@@ -702,7 +781,8 @@ elif st.session_state.page == "Image Generator":
             ):
 
                 with st.expander(
-                    f"Image {len(st.session_state.image_history) - index}"
+                    f"Image "
+                    f"{len(st.session_state.image_history) - index}"
                 ):
 
                     st.write(
@@ -758,7 +838,7 @@ elif st.session_state.page == "History":
 
     else:
 
-        # User messages from current session
+        # User messages
         user_messages = [
             message
             for message in st.session_state.messages

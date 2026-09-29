@@ -1,6 +1,6 @@
 """
 ============================================================
-EduMindAI Enterprise
+NexoraAI
 AI Engine - GROQ ONLY
 Chat + Reasoning + Vision
 ============================================================
@@ -8,16 +8,21 @@ Chat + Reasoning + Vision
 
 import os
 import base64
-import streamlit as st
+import io
 
+import streamlit as st
 from groq import Groq
 
 
+# ============================================================
+# AI ENGINE
+# ============================================================
+
 class AIEngine:
 
-    # ======================================================
+    # ========================================================
     # MODELS
-    # ======================================================
+    # ========================================================
 
     DEFAULT_MODEL = "openai/gpt-oss-120b"
 
@@ -29,55 +34,51 @@ class AIEngine:
     # Vision model
     VISION_MODEL = "qwen/qwen3.8-27b"
 
-
-    # ======================================================
+    # ========================================================
     # INIT
-    # ======================================================
+    # ========================================================
 
     def __init__(self):
-
         self.model = self.DEFAULT_MODEL
         self.client = None
-
         self._init_client()
 
-
-    # ======================================================
+    # ========================================================
     # GROQ CLIENT
-    # ======================================================
+    # ========================================================
 
     def _init_client(self):
 
         api_key = None
 
+        # ----------------------------------------------------
         # Streamlit Secrets
+        # ----------------------------------------------------
+
         try:
-
-            api_key = st.secrets.get(
-                "GROQ_API_KEY"
-            )
-
+            api_key = st.secrets.get("GROQ_API_KEY")
         except Exception:
-
             api_key = None
 
+        # ----------------------------------------------------
+        # Environment Variable
+        # ----------------------------------------------------
 
-        # Windows Environment Variable
         if not api_key:
+            api_key = os.environ.get("GROQ_API_KEY")
 
-            api_key = os.environ.get(
-                "GROQ_API_KEY"
-            )
+        # ----------------------------------------------------
+        # API KEY YO'Q
+        # ----------------------------------------------------
 
-
-        # API key topilmasa
         if not api_key:
-
             self.client = None
             return
 
+        # ----------------------------------------------------
+        # Clean API key
+        # ----------------------------------------------------
 
-        # API keyni tozalash
         api_key = (
             str(api_key)
             .strip()
@@ -85,53 +86,42 @@ class AIEngine:
             .strip("'")
         )
 
+        # ----------------------------------------------------
+        # Create Groq client
+        # ----------------------------------------------------
 
         try:
-
             self.client = Groq(
                 api_key=api_key
             )
-
         except Exception:
-
             self.client = None
 
-
-    # ======================================================
+    # ========================================================
     # SET MODEL
-    # ======================================================
+    # ========================================================
 
-    def set_model(
-        self,
-        model_name
-    ):
+    def set_model(self, model_name):
 
         if model_name in self.VALID_MODELS:
-
             self.model = model_name
-
         else:
-
             self.model = self.DEFAULT_MODEL
 
-
-    # ======================================================
+    # ========================================================
     # CHECK CLIENT
-    # ======================================================
+    # ========================================================
 
     def _check_client(self):
 
         if self.client is None:
-
             self._init_client()
-
 
         return self.client is not None
 
-
-    # ======================================================
+    # ========================================================
     # SYSTEM PROMPT
-    # ======================================================
+    # ========================================================
 
     def _system_prompt(
         self,
@@ -141,7 +131,7 @@ class AIEngine:
     ):
 
         prompt = """
-Sen EduMindAI nomli zamonaviy AI yordamchisisan.
+Sen NexoraAI nomli zamonaviy AI yordamchisisan.
 
 Foydalanuvchiga aniq, foydali va tushunarli
 javob ber.
@@ -158,16 +148,21 @@ Matematik masalalarda yechimni
 bosqichma-bosqich tushuntir.
 
 Agar foydalanuvchi seni kim yaratganini
-so'rasa, quyidagicha javob ber:
+so'rasa:
 
 "Meni Zokirov Imronbek Farhodbek o‘g‘li yaratgan."
+
+deb javob ber.
 """
 
+        # ----------------------------------------------------
+        # Deep Thinking
+        # ----------------------------------------------------
 
         if deep_thinking:
 
             prompt += """
-            
+
 Murakkab savollarni chuqur tahlil qil.
 
 Ichki reasoning jarayonini
@@ -176,6 +171,9 @@ foydalanuvchiga ko'rsatma.
 Faqat yakuniy foydali javobni ber.
 """
 
+        # ----------------------------------------------------
+        # Context
+        # ----------------------------------------------------
 
         if context:
 
@@ -184,6 +182,9 @@ Faqat yakuniy foydali javobni ber.
                 + str(context)
             )
 
+        # ----------------------------------------------------
+        # Web Search
+        # ----------------------------------------------------
 
         if web_search:
 
@@ -192,13 +193,11 @@ Faqat yakuniy foydali javobni ber.
                 + str(web_search)
             )
 
-
         return prompt
 
-
-    # ======================================================
+    # ========================================================
     # STREAM CHAT
-    # ======================================================
+    # ========================================================
 
     def stream_chat(
         self,
@@ -208,6 +207,10 @@ Faqat yakuniy foydali javobni ber.
         web_search="",
         deep_thinking=False,
     ):
+
+        # ----------------------------------------------------
+        # CHECK GROQ
+        # ----------------------------------------------------
 
         if not self._check_client():
 
@@ -219,15 +222,15 @@ Faqat yakuniy foydali javobni ber.
 
             return
 
-
+        # ----------------------------------------------------
         # SYSTEM PROMPT
+        # ----------------------------------------------------
 
         system_prompt = self._system_prompt(
             context=context,
             web_search=web_search,
             deep_thinking=deep_thinking,
         )
-
 
         messages = [
             {
@@ -236,23 +239,16 @@ Faqat yakuniy foydali javobni ber.
             }
         ]
 
-
-        # ==================================================
+        # ----------------------------------------------------
         # CHAT HISTORY
-        # ==================================================
+        # ----------------------------------------------------
 
         if history:
 
             for message in history:
 
-                role = message.get(
-                    "role"
-                )
-
-                content = message.get(
-                    "content"
-                )
-
+                role = message.get("role")
+                content = message.get("content")
 
                 if role in (
                     "user",
@@ -261,7 +257,7 @@ Faqat yakuniy foydali javobni ber.
 
                     if isinstance(
                         content,
-                        str
+                        str,
                     ):
 
                         messages.append(
@@ -271,55 +267,42 @@ Faqat yakuniy foydali javobni ber.
                             }
                         )
 
-
-        # ==================================================
+        # ----------------------------------------------------
         # CURRENT USER MESSAGE
-        # ==================================================
+        # ----------------------------------------------------
+
+        if user_prompt is None:
+            user_prompt = ""
 
         messages.append(
             {
                 "role": "user",
-                "content": str(
-                    user_prompt
-                ),
+                "content": str(user_prompt),
             }
         )
 
-
-        # ==================================================
+        # ----------------------------------------------------
         # GROQ REQUEST
-        # ==================================================
+        # ----------------------------------------------------
 
         try:
 
             request = {
-
                 "model": self.model,
-
                 "messages": messages,
-
                 "stream": True,
-
                 "temperature": 0.7,
-
                 "max_tokens": 4096,
             }
 
-
-            # ==================================================
+            # ------------------------------------------------
             # REASONING
-            # ==================================================
+            # ------------------------------------------------
 
             if deep_thinking:
 
-                request[
-                    "reasoning_effort"
-                ] = "medium"
-
-                request[
-                    "include_reasoning"
-                ] = False
-
+                request["reasoning_effort"] = "medium"
+                request["include_reasoning"] = False
 
             completion = (
                 self.client
@@ -330,19 +313,16 @@ Faqat yakuniy foydali javobni ber.
                 )
             )
 
-
-            # ==================================================
+            # ------------------------------------------------
             # STREAM RESPONSE
-            # ==================================================
+            # ------------------------------------------------
 
             for chunk in completion:
 
                 try:
 
                     if not chunk.choices:
-
                         continue
-
 
                     delta = (
                         chunk
@@ -350,23 +330,17 @@ Faqat yakuniy foydali javobni ber.
                         .delta
                     )
 
-
                     content = getattr(
                         delta,
                         "content",
-                        None
+                        None,
                     )
 
-
                     if content:
-
                         yield content
 
-
                 except Exception:
-
                     continue
-
 
         except Exception as e:
 
@@ -375,10 +349,9 @@ Faqat yakuniy foydali javobni ber.
                 + str(e)
             )
 
-
-    # ======================================================
+    # ========================================================
     # NORMAL CHAT
-    # ======================================================
+    # ========================================================
 
     def chat(
         self,
@@ -391,40 +364,32 @@ Faqat yakuniy foydali javobni ber.
 
         result = ""
 
-
         for chunk in self.stream_chat(
-
             user_prompt=user_prompt,
-
             history=history,
-
             context=context,
-
             web_search=web_search,
-
             deep_thinking=deep_thinking,
-
         ):
 
             result += str(chunk)
 
-
         return result
 
-
-    # ======================================================
-    # VISION
-    # ======================================================
+    # ========================================================
+    # VISION CHAT
+    # ========================================================
 
     def vision_chat(
         self,
-        image,
-        user_prompt,
+        user_prompt="",
+        image_bytes=None,
+        image=None,
     ):
 
-        # --------------------------------------------------
+        # ----------------------------------------------------
         # CHECK CLIENT
-        # --------------------------------------------------
+        # ----------------------------------------------------
 
         if not self._check_client():
 
@@ -432,28 +397,20 @@ Faqat yakuniy foydali javobni ber.
                 "❌ GROQ_API_KEY topilmadi."
             )
 
-
         try:
 
-            # ----------------------------------------------
-            # FILE BOSHI
-            # ----------------------------------------------
+            # =================================================
+            # GET IMAGE BYTES
+            # =================================================
 
-            try:
+            if image_bytes is None and image is not None:
 
-                image.seek(0)
+                try:
+                    image.seek(0)
+                except Exception:
+                    pass
 
-            except Exception:
-
-                pass
-
-
-            # ----------------------------------------------
-            # IMAGE BYTES
-            # ----------------------------------------------
-
-            image_bytes = image.read()
-
+                image_bytes = image.read()
 
             if not image_bytes:
 
@@ -461,17 +418,19 @@ Faqat yakuniy foydali javobni ber.
                     "❌ Rasmni o'qib bo'lmadi."
                 )
 
-
-            # ----------------------------------------------
+            # =================================================
             # MIME TYPE
-            # ----------------------------------------------
+            # =================================================
 
-            mime_type = getattr(
-                image,
-                "type",
-                "image/jpeg",
-            )
+            mime_type = "image/jpeg"
 
+            if image is not None:
+
+                mime_type = getattr(
+                    image,
+                    "type",
+                    "image/jpeg",
+                )
 
             if mime_type not in (
                 "image/jpeg",
@@ -481,54 +440,42 @@ Faqat yakuniy foydali javobni ber.
 
                 mime_type = "image/jpeg"
 
-
-            # ----------------------------------------------
+            # =================================================
             # BASE64
-            # ----------------------------------------------
+            # =================================================
 
             encoded_image = (
                 base64
-                .b64encode(
-                    image_bytes
-                )
+                .b64encode(image_bytes)
                 .decode("utf-8")
             )
-
 
             image_url = (
                 f"data:{mime_type};base64,"
                 f"{encoded_image}"
             )
 
-
-            # ----------------------------------------------
+            # =================================================
             # USER PROMPT
-            # ----------------------------------------------
+            # =================================================
 
             text_prompt = (
-
                 user_prompt
-
                 if user_prompt
-
                 else
-
                 "Bu rasmni batafsil tahlil qil."
-
             )
 
-
-            # ----------------------------------------------
+            # =================================================
             # VISION MESSAGES
-            # ----------------------------------------------
+            # =================================================
 
             messages = [
 
                 {
                     "role": "system",
-
                     "content": """
-Sen EduMindAI vision yordamchisisan.
+Sen NexoraAI vision yordamchisisan.
 
 Rasmni diqqat bilan tahlil qil.
 
@@ -547,72 +494,46 @@ tilda so'rasa, o'sha tilda javob ber.
 """,
                 },
 
-
                 {
-
                     "role": "user",
-
                     "content": [
 
                         {
-
                             "type": "text",
-
                             "text": text_prompt,
-
                         },
 
-
                         {
-
                             "type": "image_url",
-
                             "image_url": {
-
                                 "url": image_url,
-
                             },
-
                         },
 
                     ],
-
                 },
 
             ]
 
-
-            # ----------------------------------------------
+            # =================================================
             # GROQ VISION REQUEST
-            # ----------------------------------------------
+            # =================================================
 
             completion = (
-
                 self.client
-
                 .chat
-
                 .completions
-
                 .create(
-
                     model=self.VISION_MODEL,
-
                     messages=messages,
-
-                    # Groq OTPM limitiga mos
                     max_tokens=800,
-
                     temperature=0.4,
-
                 )
-
             )
 
-
-            # ----------------------------------------------
-            # RESPONSE CHECK
-            # ----------------------------------------------
+            # =================================================
+            # CHECK RESPONSE
+            # =================================================
 
             if not completion.choices:
 
@@ -620,60 +541,45 @@ tilda so'rasa, o'sha tilda javob ber.
                     "❌ Vision javobi bo'sh."
                 )
 
-
             content = (
-
                 completion
-
                 .choices[0]
-
                 .message
-
                 .content
-
             )
 
-
             if content:
-
                 return content
-
 
             return (
                 "❌ Rasm bo'yicha "
                 "javob olinmadi."
             )
 
-
-        # ==================================================
+        # ====================================================
         # VISION ERROR
-        # ==================================================
+        # ====================================================
 
         except Exception as e:
 
             error_text = str(e)
 
-
-            # 429
             if "429" in error_text:
 
                 return (
-                    "❌ Vision hozircha limitga "
-                    "yetdi.\n\n"
+                    "❌ Vision hozircha limitga yetdi.\n\n"
                     "Iltimos, birozdan keyin "
                     "yana urinib ko'ring."
                 )
-
 
             return (
                 "❌ Vision xatosi:\n\n"
                 + error_text
             )
 
-
-    # ======================================================
+    # ========================================================
     # IMAGE GENERATION
-    # ======================================================
+    # ========================================================
 
     def generate_image(
         self,
@@ -682,14 +588,100 @@ tilda so'rasa, o'sha tilda javob ber.
         aspect_ratio="1:1",
     ):
 
-        # Groq orqali image generation
-        # bu engine'da ishlatilmaydi.
+        # ----------------------------------------------------
+        # Groq image generation qilmaydi.
+        #
+        # NexoraAI uchun image generation
+        # alohida image_generator.py orqali ishlatiladi.
+        # ----------------------------------------------------
 
         return None
 
 
-# ==========================================================
+# ============================================================
 # GLOBAL AI ENGINE
-# ==========================================================
+# ============================================================
 
 ai = AIEngine()
+
+
+# ============================================================
+# MODULE LEVEL FUNCTIONS
+#
+# app.py quyidagicha:
+#
+# import ai_engine as ai
+#
+# ai.stream_chat(...)
+# ai.set_model(...)
+# ai.vision_chat(...)
+#
+# ishlashi uchun kerak.
+# ============================================================
+
+
+def set_model(model_name):
+
+    return ai.set_model(
+        model_name
+    )
+
+
+def stream_chat(
+    user_prompt,
+    history=None,
+    context="",
+    web_search="",
+    deep_thinking=False,
+):
+
+    return ai.stream_chat(
+        user_prompt=user_prompt,
+        history=history,
+        context=context,
+        web_search=web_search,
+        deep_thinking=deep_thinking,
+    )
+
+
+def chat(
+    user_prompt,
+    history=None,
+    context="",
+    web_search="",
+    deep_thinking=False,
+):
+
+    return ai.chat(
+        user_prompt=user_prompt,
+        history=history,
+        context=context,
+        web_search=web_search,
+        deep_thinking=deep_thinking,
+    )
+
+
+def vision_chat(
+    user_prompt="",
+    image_bytes=None,
+    image=None,
+):
+
+    return ai.vision_chat(
+        user_prompt=user_prompt,
+        image_bytes=image_bytes,
+        image=image,
+    )
+
+
+def generate_image(
+    prompt,
+    style="Realistic",
+    aspect_ratio="1:1",
+):
+
+    return ai.generate_image(
+        prompt=prompt,
+        style=style,
+        aspect_ratio=aspect_ratio,
+    )

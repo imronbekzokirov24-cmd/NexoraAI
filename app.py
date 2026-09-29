@@ -1,5 +1,4 @@
 import io
-import os
 import streamlit as st
 import ai_engine as ai
 
@@ -51,6 +50,16 @@ if "page" not in st.session_state:
 
 if "deep_thinking" not in st.session_state:
     st.session_state.deep_thinking = False
+
+
+# ==========================================================
+# SET DEFAULT MODEL
+# ==========================================================
+
+try:
+    ai.set_model(st.session_state.selected_model)
+except Exception:
+    pass
 
 
 # ==========================================================
@@ -110,37 +119,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
-# ==========================================================
-# AUTH
-# ==========================================================
-
-try:
-
-    if not st.user.is_logged_in:
-
-        st.markdown(
-            """
-            <div style="text-align:center; padding-top:100px;">
-                <div style="font-size:55px;">🤖</div>
-                <h1>NexoraAI</h1>
-                <p>AI Assistant</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        if st.button(
-            "Continue with Login",
-            use_container_width=True,
-        ):
-            st.login("auth0")
-
-        st.stop()
-
-except Exception:
-    pass
 
 
 # ==========================================================
@@ -239,7 +217,6 @@ with st.sidebar:
     ):
 
         st.session_state.messages = []
-
         st.session_state.page = "Chat"
 
         st.rerun()
@@ -247,44 +224,13 @@ with st.sidebar:
     st.divider()
 
     # ------------------------------------------------------
-    # ACCOUNT
+    # APP INFO
     # ------------------------------------------------------
 
-    st.markdown("### Account")
+    st.markdown("### NexoraAI")
 
-    try:
-
-        user_name = (
-            st.user.name
-            if getattr(st.user, "name", None)
-            else "User"
-        )
-
-        user_email = (
-            st.user.email
-            if getattr(st.user, "email", None)
-            else ""
-        )
-
-        st.write(f"👤 {user_name}")
-
-        if user_email:
-            st.caption(user_email)
-
-    except Exception:
-
-        st.write("👤 User")
-
-    if st.button(
-        "Logout",
-        use_container_width=True,
-    ):
-
-        try:
-            st.logout()
-
-        except Exception:
-            pass
+    st.caption("AI Assistant")
+    st.caption("No login required")
 
 
 # ==========================================================
@@ -362,28 +308,19 @@ if st.session_state.page == "Chat":
         uploaded_file = None
 
         try:
-
             uploaded_file = user_input.files
-
         except Exception:
-
             uploaded_file = None
 
         # ==================================================
         # IF FILE LIST
         # ==================================================
 
-        if isinstance(
-            uploaded_file,
-            list,
-        ):
+        if isinstance(uploaded_file, list):
 
             if len(uploaded_file) > 0:
-
                 uploaded_file = uploaded_file[0]
-
             else:
-
                 uploaded_file = None
 
         # ==================================================
@@ -400,7 +337,6 @@ if st.session_state.page == "Chat":
             )
 
             with st.chat_message("user"):
-
                 st.markdown(prompt)
 
         # ==================================================
@@ -532,11 +468,6 @@ if st.session_state.page == "Chat":
                     # ======================================
 
                     else:
-
-                        # Muhim:
-                        # stream_chat() generator qaytaradi.
-                        # Uni st.markdown()ga berish mumkin emas.
-                        # st.write_stream() kerak.
 
                         response = st.write_stream(
                             ai.stream_chat(
